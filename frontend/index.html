@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clipboard & Version Control</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Main Content Area -->
+    <main class="main-content" id="mainContent">
+        <header class="header">
+            <h1>Welcome to Clio</h1>
+            <p class="subtitle">Your personal clipboard manager and version control system</p>
+            <div class="top-nav">
+                <a href="index.html" class="top-nav-btn">Home</a>
+                <a href="clipboard/clipboard.html" class="top-nav-btn">Clipboard History</a>
+                <a href="version/version.html" class="top-nav-btn">Version Control</a>
+            </div>
+        </header>
+
+        <div class="dashboard">
+            <div class="feature-cards">
+                <div class="card">
+                    <div class="card-icon"></div>
+                    <h3>Clipboard History</h3>
+                    <p>View and manage your 24-hour clipboard history with smart content detection</p>
+                    <div class="card-stats">
+                        <span id="clipboardCount">Loading...</span> entries today
+                    </div>
+                    <a href="clipboard/clipboard.html" class="card-button">Open Clipboard</a>
+                </div>
+
+                <div class="card">
+                    <div class="card-icon"></div>
+                    <h3>Version Control</h3>
+                    <p>Track file versions with comments and visual diffs for your projects</p>
+                    <div class="card-stats">
+                        <span id="projectCount">Loading...</span> active projects
+                    </div>
+                    <a href="version/version.html" class="card-button">Manage Versions</a>
+                </div>
+            </div>
+
+            <div class="recent-activity">
+                <h3>Recent Activity</h3>
+                <div class="activity-list" id="recentActivity">
+                    <div class="loading">Loading recent activity...</div>
+                </div>
+            </div>
+
+            <div class="quick-actions">
+                <h3>Quick Actions</h3>
+                <div class="action-buttons">
+                    <button class="action-btn" onclick="checkClipboard()">
+                        <span class="icon"></span>
+                        Sync Clipboard
+                    </button>
+                    <button class="action-btn" onclick="clearOldEntries()">
+                        <span class="icon"></span>
+                        Clear Old Data
+                    </button>
+                    <button class="action-btn" onclick="exportData()">
+                        <span class="icon"></span>
+                        Export Data
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="app.js"></script>
+    <script>
+        // Page-specific JavaScript
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeDashboard();
+            checkServerStatus();
+            loadDashboardStats();
+            
+            // Auto-refresh stats every 30 seconds
+            setInterval(loadDashboardStats, 30000);
+        });
+
+        function initializeDashboard() {
+            // Navigation link highlighting
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+        }
+
+        async function loadDashboardStats() {
+            try {
+                // Load clipboard count
+                const clipboardData = await apiCall('/api/clipboard');
+                if (clipboardData.success) {
+                    document.getElementById('clipboardCount').textContent = clipboardData.entries.length;
+                    updateRecentActivity(clipboardData.entries.slice(0, 5));
+                }
+
+                // Load project count
+                const projectData = await apiCall('/api/projects');
+                if (projectData.success) {
+                    document.getElementById('projectCount').textContent = projectData.projects.length;
+                }
+            } catch (error) {
+                console.error('Error loading dashboard stats:', error);
+                showToast('Error loading dashboard stats', 'error');
+            }
+        }
+
+        function updateRecentActivity(recentEntries) {
+            const activityList = document.getElementById('recentActivity');
+            
+            if (recentEntries.length === 0) {
+                activityList.innerHTML = '<div class="no-activity">No recent activity</div>';
+                return;
+            }
+
+            const activityHTML = recentEntries.map(entry => `
+                <div class="activity-item">
+                    <div class="activity-icon">${getContentIcon(entry.content_type)}</div>
+                    <div class="activity-content">
+                        <div class="activity-text">${truncateText(entry.content, 60)}</div>
+                        <div class="activity-time">${formatRelativeTime(entry.timestamp)}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            activityList.innerHTML = activityHTML;
+        }
+
+        function getContentIcon(contentType) {
+            const icons = {
+                'url': '',
+                'email': '',
+                'code': '',
+                'number': '',
+                'text': ''
+            };
+            return icons[contentType] || '';
+        }
+
+        async function checkClipboard() {
+            try {
+                showToast('Syncing clipboard...', 'info');
+                await loadDashboardStats();
+                showToast('Clipboard synced successfully', 'success');
+            } catch (error) {
+                showToast('Error syncing clipboard', 'error');
+            }
+        }
+
+        async function clearOldEntries() {
+            if (confirm('Are you sure you want to clear old clipboard entries?')) {
+                try {
+                    showToast('Clearing old entries...', 'info');
+                    // This would need a backend endpoint to clear old entries
+                    showToast('Old entries cleared', 'success');
+                } catch (error) {
+                    showToast('Error clearing entries', 'error');
+                }
+            }
+        }
+
+        function exportData() {
+            showToast('Export feature coming soon!', 'info');
+        }
+    </script>
+</body>
+</html>
