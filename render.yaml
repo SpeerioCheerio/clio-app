@@ -1,11 +1,42 @@
 services:
+  # Backend Python (Flask) Service
   - type: web
     name: clio-backend
     env: python
-    buildCommand: ""
-    startCommand: python app.py
+    region: ohio # Or your preferred region
     plan: free
-    autoDeploy: true
+    healthCheckPath: /
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0 # Or the python version you are using
+      - key: FLASK_APP
+        value: app.py
       - key: FLASK_ENV
         value: production
+      - fromGroup: clio-secrets
+    build:
+      - path: backend
+        command: pip install -r requirements.txt
+    start:
+      - path: backend
+        command: gunicorn app:app
+
+  # Frontend Static Site
+  - type: web
+    name: clio-frontend
+    env: static
+    region: ohio # Or your preferred region
+    plan: free
+    staticPublishPath: ./frontend
+    autoDeploy: true
+    routes:
+      - type: rewrite
+        source: /
+        destination: /index.html
+
+# Environment Variable Group for Secrets
+envVarGroups:
+  - name: clio-secrets
+    envVars:
+      - key: OPENAI_API_KEY
+        value: PASTE_YOUR_KEY_HERE_IN_RENDER_DASHBOARD
