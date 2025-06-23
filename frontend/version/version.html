@@ -168,7 +168,7 @@
             display: flex;
             flex-wrap: wrap;
             gap: 0.5rem;
-            margin-bottom: 1rem;
+            padding-top: 0.5rem;
         }
 
         .project-tab {
@@ -258,13 +258,12 @@
         .modal {
             display: none;
             position: fixed;
-            top: 0;
+            z-index: 1000;
             left: 0;
+            top: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 2000;
-            animation: fadeIn 0.3s ease;
+            background-color: rgba(0, 0, 0, 0.5);
         }
 
         .modal.open {
@@ -274,28 +273,28 @@
         }
 
         .modal-content {
-            background: var(--surface-color);
+            background-color: var(--surface-color);
+            margin: 2rem;
             border-radius: 0.75rem;
             width: 90%;
-            max-width: 1000px;
-            max-height: 80%;
+            max-width: 1200px;
+            max-height: 90vh;
             overflow: hidden;
-            display: flex;
-            flex-direction: column;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
         }
 
         .modal-header {
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--border-color);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
         }
 
-        .modal-body {
-            flex: 1;
-            overflow-y: auto;
-            padding: 1.5rem;
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 600;
         }
 
         .close-btn {
@@ -304,36 +303,44 @@
             font-size: 1.5rem;
             cursor: pointer;
             color: var(--text-secondary);
+            padding: 0.25rem;
+            border-radius: 0.25rem;
         }
 
-        .diff-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-            height: 400px;
+        .close-btn:hover {
+            background: var(--background-color);
+            color: var(--text-primary);
         }
 
-        .diff-panel {
-            border: 1px solid var(--border-color);
-            border-radius: 0.5rem;
+        .modal-body {
+            padding: 0;
+            max-height: calc(90vh - 80px);
             overflow: hidden;
         }
 
-        .diff-header {
-            background: var(--background-color);
-            padding: 0.75rem;
-            font-weight: 600;
-            border-bottom: 1px solid var(--border-color);
+        .advanced-diff-container {
+            height: 100%;
         }
 
-        .diff-content {
-            padding: 1rem;
+        .error-message, .fallback-diff {
+            padding: 1.5rem;
+        }
+
+        .simple-diff {
+            margin-top: 1rem;
+        }
+
+        .simple-diff h4 {
+            margin: 1rem 0 0.5rem 0;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .simple-diff pre {
             font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
             font-size: 0.875rem;
             line-height: 1.4;
-            overflow-y: auto;
-            height: calc(100% - 50px);
-            white-space: pre-wrap;
+            margin: 0;
         }
 
         /* AI Analysis Styles */
@@ -427,6 +434,162 @@
                 height: 300px;
             }
         }
+
+        /* Simple Diff Viewer Styles */
+        .simple-diff-viewer {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .simple-diff-viewer .diff-stats {
+            background: var(--background-color);
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            gap: 1rem;
+        }
+
+        .simple-diff-viewer .diff-content {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            height: calc(100% - 60px);
+        }
+
+        .simple-diff-viewer .diff-panel {
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .simple-diff-viewer .diff-panel:last-child {
+            border-right: none;
+        }
+
+        .simple-diff-viewer .diff-panel-header {
+            background: var(--background-color);
+            padding: 0.75rem 1rem;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .simple-diff-viewer .diff-panel-content {
+            flex: 1;
+            overflow-y: auto;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.875rem;
+            line-height: 1.4;
+        }
+
+        .simple-diff-viewer .diff-line {
+            display: flex;
+            min-height: 20px;
+            padding: 0 0.5rem;
+        }
+
+        .simple-diff-viewer .line-number {
+            display: inline-block;
+            width: 50px;
+            color: #6b7280;
+            text-align: right;
+            margin-right: 1rem;
+            user-select: none;
+        }
+
+        .simple-diff-viewer .line-content {
+            flex: 1;
+            white-space: pre-wrap;
+        }
+
+        /* Context Menu */
+        .context-menu {
+            display: none;
+            position: absolute;
+            z-index: 1000;
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 0.5rem 0;
+            min-width: 150px;
+        }
+
+        .context-menu ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .context-menu li {
+            padding: 0.75rem 1.25rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+
+        .context-menu li:hover {
+            background-color: var(--background-color);
+        }
+
+        .context-menu li.danger-option:hover {
+            background-color: #fee2e2; /* light red */
+            color: #b91c1c; /* dark red */
+        }
+
+        /* Project Groups */
+        .project-group {
+            margin-bottom: 1rem;
+        }
+
+        .project-group-header {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem;
+            cursor: pointer;
+            border-radius: 0.5rem;
+        }
+
+        .project-group-header:hover {
+            background-color: var(--background-color);
+        }
+
+        .project-group-header .toggle-icon {
+            margin-right: 0.5rem;
+            transition: transform 0.2s ease;
+        }
+
+        .project-group-header.collapsed .toggle-icon {
+            transform: rotate(-90deg);
+        }
+
+        .project-group-name {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .project-group-content {
+            padding-left: 1.5rem;
+            max-height: 500px;
+            overflow: hidden;
+            transition: max-height 0.3s ease-in-out;
+        }
+
+        .project-group-content.collapsed {
+            max-height: 0;
+        }
+
+        .project-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding-top: 0.5rem;
+        }
+
+        .panel-subheader {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
     </style>
 </head>
 <body>
@@ -463,6 +626,12 @@
                                     <button type="button" class="new-project-btn" id="newProjectBtn">+ New</button>
                                 </div>
                                 <input type="text" id="newProjectInput" class="form-input hidden" placeholder="Enter project name..." style="margin-top: 0.5rem;">
+                            </div>
+
+                            <!-- Group Name -->
+                            <div class="form-group">
+                                <label for="groupInput">Group (optional):</label>
+                                <input type="text" id="groupInput" class="form-input" placeholder="e.g., Work, Personal, etc.">
                             </div>
 
                             <!-- File Upload Area -->
@@ -504,18 +673,16 @@
                     </div>
                     
                     <div class="panel-content">
-                        <!-- Project Tabs -->
-                        <div class="project-tabs" id="projectTabs">
+                        <!-- Project Groups List -->
+                        <div class="project-groups-list" id="projectGroupsList">
                             <div class="empty-state">
                                 <p>No projects yet</p>
                                 <p class="text-muted">Create your first version to get started</p>
                             </div>
                         </div>
 
-                        <!-- Version List -->
-                        <div class="version-list" id="versionList">
-                            <!-- Versions will be populated here -->
-                        </div>
+                        <!-- This is where the list of versions for the selected project will go -->
+                        <div id="versionDisplayContainer"></div>
                     </div>
                 </div>
             </div>
@@ -530,22 +697,29 @@
                 <button class="close-btn" onclick="closeDiffModal()">&times;</button>
             </div>
             <div class="modal-body">
-                <div class="diff-container">
-                    <div class="diff-panel">
-                        <div class="diff-header" id="leftHeader">Previous Version</div>
-                        <div class="diff-content" id="leftContent"></div>
-                    </div>
-                    <div class="diff-panel">
-                        <div class="diff-header" id="rightHeader">Current Version</div>
-                        <div class="diff-content" id="rightContent"></div>
-                    </div>
-                </div>
+                <!-- Dynamic content will be inserted here by AdvancedDiff -->
             </div>
         </div>
     </div>
 
     <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Project Context Menu -->
+    <div id="projectContextMenu" class="context-menu">
+        <ul>
+            <li id="renameProjectBtn">Rename Project</li>
+            <li id="moveProjectBtn">Move to Group...</li>
+            <li id="deleteProjectBtn" class="danger-option">Delete Project</li>
+        </ul>
+    </div>
+
+    <!-- Group Context Menu -->
+    <div id="groupContextMenu" class="context-menu">
+        <ul>
+            <li id="deleteGroupBtn" class="danger-option">Delete Group</li>
+        </ul>
+    </div>
 
     <script src="../app.js"></script>
     <script src="diff.js"></script>

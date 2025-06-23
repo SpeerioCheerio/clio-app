@@ -428,6 +428,7 @@ class AdvancedDiff {
 
     async performAIAnalysis(oldText, newText, analysisContainer) {
         try {
+            // Check if the API endpoint exists by trying to fetch it
             const response = await fetch(`${API_BASE_URL}/api/analyze-diff`, {
                 method: 'POST',
                 headers: {
@@ -438,6 +439,10 @@ class AdvancedDiff {
                     new_content: newText
                 })
             });
+            
+            if (!response.ok) {
+                throw new Error(`API endpoint not available (${response.status})`);
+            }
             
             const data = await response.json();
             
@@ -453,7 +458,7 @@ class AdvancedDiff {
                                 <p>${summary}</p>
                             </div>
                         ` : ''}
-                        ${insights.length > 0 ? `
+                        ${insights && insights.length > 0 ? `
                             <div class="analysis-insights">
                                 <h4>Key Insights</h4>
                                 <ul>
@@ -474,7 +479,7 @@ class AdvancedDiff {
             console.error('Error performing AI analysis:', error);
             analysisContainer.innerHTML = `
                 <div class="analysis-section">
-                    <p class="text-muted">Error performing AI analysis</p>
+                    <p class="text-muted">AI analysis not available (${error.message})</p>
                 </div>
             `;
         }

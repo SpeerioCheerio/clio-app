@@ -3,3 +3,5 @@ Werkzeug==2.3.7
 transformers
 torch
 flask-cors
+openai
+python-dotenv

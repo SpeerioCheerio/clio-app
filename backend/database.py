@@ -37,6 +37,25 @@ def init_database():
     conn.close()
     print("Database initialized successfully")
 
+    # Add group_name column to versions table if it doesn't exist for project grouping
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("PRAGMA table_info(versions)")
+        columns = [col['name'] for col in cursor.fetchall()]
+        
+        if 'group_name' not in columns:
+            cursor.execute('ALTER TABLE versions ADD COLUMN group_name TEXT')
+            conn.commit()
+            print("[INFO] Added 'group_name' column to 'versions' table for project grouping.")
+            
+    except Exception as e:
+        print(f"[ERROR] Failed to update versions schema for grouping: {e}")
+    finally:
+        if conn:
+            conn.close()
+
 def get_db_connection():
     """Get a connection to the SQLite database."""
     conn = sqlite3.connect(DATABASE_FILE)

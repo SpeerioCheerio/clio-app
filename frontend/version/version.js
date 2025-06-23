@@ -69,19 +69,27 @@ class VersionControl {
         if (draftContent) {
             contentArea.value = draftContent;
         }
+
+        // Hide context menu on click outside
+        document.addEventListener('click', () => {
+            const contextMenu = document.getElementById('projectContextMenu');
+            if (contextMenu) {
+                contextMenu.style.display = 'none';
+            }
+        });
     }
 
     async loadProjects() {
         try {
             const response = await apiCall('/api/projects');
             if (response.success) {
-                this.projects = response.projects;
+                this.groupedProjects = response.projects;
+                this.renderProjectGroups();
                 this.updateProjectSelector();
-                this.updateProjectTabs();
                 
-                // Load first project by default
-                if (this.projects.length > 0) {
-                    this.selectProject(this.projects[0]);
+                // Load first project of first group by default, only if nothing is selected
+                if (!this.currentProject && this.groupedProjects.length > 0 && this.groupedProjects[0].projects.length > 0) {
+                    this.selectProject(this.groupedProjects[0].projects[0]);
                 }
             }
         } catch (error) {
@@ -94,78 +102,121 @@ class VersionControl {
         const select = document.getElementById('projectSelect');
         select.innerHTML = '<option value="">Select or create project...</option>';
         
-        this.projects.forEach(project => {
-            const option = document.createElement('option');
-            option.value = project;
-            option.textContent = project;
-            select.appendChild(option);
-        });
+        if (this.groupedProjects) {
+            this.groupedProjects.forEach(group => {
+                if (!group || !group.projects) return; // Safeguard against bad data
+                
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = this.escapeHtml(group.group_name);
+                
+                group.projects.forEach(project => {
+                    const option = document.createElement('option');
+                    option.value = project;
+                    option.textContent = project;
+                    optgroup.appendChild(option);
+                });
+                select.appendChild(optgroup);
+            });
+        }
     }
 
-    updateProjectTabs() {
-        const tabsContainer = document.getElementById('projectTabs');
-        
-        if (this.projects.length === 0) {
-            tabsContainer.innerHTML = `
-                <div class="empty-state">
-                    <p>No projects yet</p>
-                    <p class="text-muted">Create your first version to get started</p>
-                </div>
-            `;
+    renderProjectGroups() {
+        const container = document.getElementById('projectGroupsList');
+        container.innerHTML = '';
+
+        if (!this.groupedProjects || this.groupedProjects.length === 0) {
+            container.innerHTML = `<div class="empty-state"><p>No projects yet</p></div>`;
             return;
         }
 
-        tabsContainer.innerHTML = '';
-        this.projects.forEach(project => {
-            const tab = document.createElement('div');
-            tab.className = `project-tab ${project === this.currentProject ? 'active' : ''}`;
-            tab.textContent = project;
-            tab.addEventListener('click', () => this.selectProject(project));
-            tabsContainer.appendChild(tab);
+        this.groupedProjects.forEach(group => {
+            if (!group || !group.projects) return;
+
+            const groupEl = document.createElement('div');
+            groupEl.className = 'project-group';
+            
+            groupEl.innerHTML = `
+                <div class="project-group-header">
+                    <span class="toggle-icon">▼</span>
+                    <span class="project-group-name">${this.escapeHtml(group.group_name)}</span>
+                </div>
+                <div class="project-group-content">
+                    <div class="project-tabs"></div>
+                </div>
+            `;
+
+            const groupHeader = groupEl.querySelector('.project-group-header');
+            const groupContent = groupEl.querySelector('.project-group-content');
+            const tabsContainer = groupEl.querySelector('.project-tabs');
+
+            // Add context menu for the group itself
+            groupHeader.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                this.showGroupContextMenu(e, group.group_name);
+            });
+
+            group.projects.forEach(project => {
+                const tab = document.createElement('div');
+                tab.className = `project-tab ${project === this.currentProject ? 'active' : ''}`;
+                tab.textContent = project;
+                tab.addEventListener('click', () => this.selectProject(project));
+                tab.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation(); // Prevent group context menu from showing
+                    this.showProjectContextMenu(e, project);
+                });
+                tabsContainer.appendChild(tab);
+            });
+            
+            container.appendChild(groupEl);
+            
+            // Toggle collapse
+            groupHeader.addEventListener('click', (e) => {
+                if (e.target.closest('.project-tab')) return;
+                groupHeader.classList.toggle('collapsed');
+                groupContent.classList.toggle('collapsed');
+            });
         });
     }
 
     async selectProject(projectName) {
         this.currentProject = projectName;
-        this.updateProjectTabs();
-        
-        // Update form project selector
+        this.renderProjectGroups(); // Re-render to update active tab
         document.getElementById('projectSelect').value = projectName;
-        
         await this.loadVersions(projectName);
     }
 
     async loadVersions(projectName) {
+        const versionContainer = document.getElementById('versionDisplayContainer');
+        versionContainer.innerHTML = `<div class="loading-state">Loading versions for ${projectName}...</div>`;
+
         try {
             const response = await apiCall(`/api/versions/${encodeURIComponent(projectName)}`);
             if (response.success) {
-                this.versions[projectName] = response.versions;
-                this.updateVersionList(response.versions);
+                const versions = response.versions;
+                let versionsHtml = `
+                    <h3 class="panel-subheader">Versions for: ${this.escapeHtml(projectName)}</h3>
+                    <div class="version-list">
+                `;
+
+                if (versions.length === 0) {
+                    versionsHtml += `<div class="empty-state"><p>No versions yet</p></div>`;
+                } else {
+                    versions.forEach((version, index) => {
+                        const versionItem = this.createVersionItem(version, index, versions);
+                        versionsHtml += versionItem.outerHTML;
+                    });
+                }
+
+                versionsHtml += `</div>`;
+                versionContainer.innerHTML = versionsHtml;
+            } else {
+                versionContainer.innerHTML = `<div class="error-state">Error loading versions.</div>`;
             }
         } catch (error) {
             console.error('Error loading versions:', error);
-            showToast('Error loading versions', 'error');
+            versionContainer.innerHTML = `<div class="error-state">Error loading versions.</div>`;
         }
-    }
-
-    updateVersionList(versions) {
-        const versionList = document.getElementById('versionList');
-        
-        if (versions.length === 0) {
-            versionList.innerHTML = `
-                <div class="empty-state">
-                    <p>No versions yet</p>
-                    <p class="text-muted">Upload your first file to start tracking versions</p>
-                </div>
-            `;
-            return;
-        }
-
-        versionList.innerHTML = '';
-        versions.forEach((version, index) => {
-            const versionItem = this.createVersionItem(version, index, versions);
-            versionList.appendChild(versionItem);
-        });
     }
 
     createVersionItem(version, index, versionsArray) {
@@ -302,6 +353,7 @@ class VersionControl {
         const commentInput = document.getElementById('commentInput');
         const fileInput = document.getElementById('fileInput');
         const submitBtn = document.getElementById('submitBtn');
+        const groupInput = document.getElementById('groupInput');
         
         // Prevent double submission
         if (submitBtn.disabled) {
@@ -309,9 +361,15 @@ class VersionControl {
         }
         
         // Determine project name
-        let projectName = projectSelect.value;
-        if (!projectName && !newProjectInput.classList.contains('hidden')) {
-            projectName = newProjectInput.value.trim();
+        let projectName;
+        const newProjectName = newProjectInput.value.trim();
+
+        if (!newProjectInput.classList.contains('hidden') && newProjectName) {
+            // If the "new project" input is visible and has a value, use it
+            projectName = newProjectName;
+        } else {
+            // Otherwise, use the dropdown
+            projectName = projectSelect.value;
         }
         
         if (!projectName) {
@@ -338,6 +396,7 @@ class VersionControl {
         formData.append('project_name', projectName);
         formData.append('content', content);
         formData.append('comment', comment);
+        formData.append('group_name', groupInput.value.trim());
         
         // If a file was uploaded, use its name
         if (fileInput.files.length > 0) {
@@ -365,13 +424,9 @@ class VersionControl {
                 fileInput.value = '';
                 AppUtils.setLocalStorage('version_draft_content', '');
                 
-                // Refresh data
+                // Refresh data and select the new/updated project
                 await this.loadProjects();
-                if (this.currentProject === projectName) {
-                    await this.loadVersions(projectName);
-                } else {
-                    this.selectProject(projectName);
-                }
+                this.selectProject(projectName);
                 
                 // Hide new project input if it was used
                 if (!newProjectInput.classList.contains('hidden')) {
@@ -533,33 +588,30 @@ class VersionControl {
     openDiffModal(oldContent, newContent, oldFilename, newFilename) {
         const modal = document.getElementById('diffModal');
         const title = document.getElementById('diffTitle');
-        // We'll use a single container for the new diff viewer
-        let diffViewerContainer = modal.querySelector('.advanced-diff-container');
-        if (!diffViewerContainer) {
-            diffViewerContainer = document.createElement('div');
-            diffViewerContainer.className = 'advanced-diff-container';
-            // Remove old diff panels if present
-            const oldDiffContainer = modal.querySelector('.diff-container');
-            if (oldDiffContainer) oldDiffContainer.remove();
-            modal.querySelector('.modal-body').appendChild(diffViewerContainer);
-        }
-        diffViewerContainer.innerHTML = '';
-
+        
+        // Clear any existing content
+        const modalBody = modal.querySelector('.modal-body');
+        modalBody.innerHTML = '';
+        
         title.textContent = `Compare: ${oldFilename} vs ${newFilename}`;
 
-        // Use AdvancedDiff to render the diff viewer with AI analysis
+        // Create the diff viewer container
+        const diffViewerContainer = document.createElement('div');
+        diffViewerContainer.className = 'advanced-diff-container';
+        modalBody.appendChild(diffViewerContainer);
+
+        // Ensure AdvancedDiff is available
         if (typeof AdvancedDiff !== 'undefined') {
-            // Inject styles if not already present
-            if (!document.getElementById('advanced-diff-styles')) {
-                const style = document.createElement('style');
-                style.id = 'advanced-diff-styles';
-                style.textContent = typeof advancedDiffStyles !== 'undefined' ? advancedDiffStyles : '';
-                document.head.appendChild(style);
+            try {
+                const advDiff = new AdvancedDiff();
+                advDiff.createDiffViewer(oldContent, newContent, diffViewerContainer);
+            } catch (error) {
+                console.error('Error creating diff viewer:', error);
+                diffViewerContainer.innerHTML = this.createSimpleDiff(oldContent, newContent, oldFilename, newFilename);
             }
-            const advDiff = new AdvancedDiff();
-            advDiff.createDiffViewer(oldContent, newContent, diffViewerContainer);
         } else {
-            diffViewerContainer.innerHTML = '<div class="text-muted">Advanced diff viewer not available.</div>';
+            // Fallback if AdvancedDiff is not available
+            diffViewerContainer.innerHTML = this.createSimpleDiff(oldContent, newContent, oldFilename, newFilename);
         }
 
         modal.classList.add('open');
@@ -569,6 +621,192 @@ class VersionControl {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    // Simple fallback diff function
+    createSimpleDiff(oldContent, newContent, oldFilename, newFilename) {
+        const oldLines = oldContent.split('\n');
+        const newLines = newContent.split('\n');
+        
+        let html = `
+            <div class="simple-diff-viewer">
+                <div class="diff-stats">
+                    <span class="stat-item">Old: ${oldLines.length} lines</span>
+                    <span class="stat-item">New: ${newLines.length} lines</span>
+                </div>
+                <div class="diff-content">
+                    <div class="diff-panel">
+                        <div class="diff-panel-header">Old Version (${oldFilename})</div>
+                        <div class="diff-panel-content">
+        `;
+        
+        oldLines.forEach((line, index) => {
+            const lineNumber = index + 1;
+            html += `<div class="diff-line"><span class="line-number">${lineNumber}</span><span class="line-content">${this.escapeHtml(line)}</span></div>`;
+        });
+        
+        html += `
+                        </div>
+                    </div>
+                    <div class="diff-panel">
+                        <div class="diff-panel-header">New Version (${newFilename})</div>
+                        <div class="diff-panel-content">
+        `;
+        
+        newLines.forEach((line, index) => {
+            const lineNumber = index + 1;
+            html += `<div class="diff-line"><span class="line-number">${lineNumber}</span><span class="line-content">${this.escapeHtml(line)}</span></div>`;
+        });
+        
+        html += `
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        return html;
+    }
+
+    showProjectContextMenu(event, projectName) {
+        const contextMenu = document.getElementById('projectContextMenu');
+        contextMenu.style.display = 'block';
+        contextMenu.style.left = `${event.pageX}px`;
+        contextMenu.style.top = `${event.pageY}px`;
+
+        document.getElementById('renameProjectBtn').onclick = () => {
+            contextMenu.style.display = 'none';
+            this.handleRenameProject(projectName);
+        };
+
+        document.getElementById('moveProjectBtn').onclick = () => {
+            contextMenu.style.display = 'none';
+            this.handleMoveProject(projectName);
+        };
+
+        document.getElementById('deleteProjectBtn').onclick = () => {
+            contextMenu.style.display = 'none';
+            this.handleDeleteProject(projectName);
+        };
+    }
+
+    async handleRenameProject(oldName) {
+        const newName = prompt(`Enter new name for project "${oldName}":`, oldName);
+        
+        if (newName && newName.trim() !== '' && newName.trim() !== oldName) {
+            try {
+                const response = await apiCall(`/api/project/${encodeURIComponent(oldName)}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ new_name: newName.trim() })
+                });
+
+                if (response.success) {
+                    showToast('Project renamed successfully!', 'success');
+                    await this.loadProjects();
+                    // If the renamed project was the current one, select it with the new name
+                    if (this.currentProject === oldName) {
+                        this.selectProject(newName.trim());
+                    }
+                } else {
+                    showToast(response.error || 'Failed to rename project', 'error');
+                }
+            } catch (error) {
+                console.error('Error renaming project:', error);
+                showToast('An error occurred while renaming the project.', 'error');
+            }
+        }
+    }
+
+    async handleMoveProject(projectName) {
+        const newGroup = prompt(`Enter new group for project "${projectName}":`);
+        
+        if (newGroup && newGroup.trim() !== '') {
+            try {
+                const response = await apiCall(`/api/project/${encodeURIComponent(projectName)}/group`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ group_name: newGroup.trim() })
+                });
+
+                if (response.success) {
+                    showToast('Project moved successfully!', 'success');
+                    await this.loadProjects();
+                } else {
+                    showToast(response.error || 'Failed to move project', 'error');
+                }
+            } catch (error) {
+                console.error('Error moving project:', error);
+                showToast('An error occurred while moving the project.', 'error');
+            }
+        }
+    }
+
+    async handleDeleteProject(projectName) {
+        const confirmation = confirm(`Are you sure you want to delete the project "${projectName}" and all its versions? This action cannot be undone.`);
+        
+        if (confirmation) {
+            try {
+                const response = await apiCall(`/api/project/${encodeURIComponent(projectName)}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.success) {
+                    showToast('Project deleted successfully!', 'success');
+                    // If the deleted project was the current one, clear the view
+                    if (this.currentProject === projectName) {
+                        this.currentProject = null;
+                        document.getElementById('versionDisplayContainer').innerHTML = '';
+                    }
+                    await this.loadProjects();
+                } else {
+                    showToast(response.error || 'Failed to delete project', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting project:', error);
+                showToast('An error occurred while deleting the project.', 'error');
+            }
+        }
+    }
+
+    showGroupContextMenu(event, groupName) {
+        if (groupName === 'Uncategorized') return; // Cannot delete this group
+
+        const contextMenu = document.getElementById('groupContextMenu');
+        contextMenu.style.display = 'block';
+        contextMenu.style.left = `${event.pageX}px`;
+        contextMenu.style.top = `${event.pageY}px`;
+
+        document.getElementById('deleteGroupBtn').onclick = () => {
+            contextMenu.style.display = 'none';
+            this.handleDeleteGroup(groupName);
+        };
+    }
+
+    async handleDeleteGroup(groupName) {
+        const confirmation = confirm(`Are you sure you want to delete the entire group "${groupName}"? This will delete all projects and versions within it. This action cannot be undone.`);
+        
+        if (confirmation) {
+            try {
+                const response = await apiCall(`/api/group/${encodeURIComponent(groupName)}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.success) {
+                    showToast('Group deleted successfully!', 'success');
+                    if (this.currentProject && this.groupedProjects.find(g => g.group_name === groupName)?.projects.includes(this.currentProject)) {
+                        this.currentProject = null;
+                        document.getElementById('versionDisplayContainer').innerHTML = '';
+                    }
+                    await this.loadProjects();
+                } else {
+                    showToast(response.error || 'Failed to delete group', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting group:', error);
+                showToast('An error occurred while deleting the group.', 'error');
+            }
+        }
     }
 }
 
