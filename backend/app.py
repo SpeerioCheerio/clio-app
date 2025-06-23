@@ -62,6 +62,10 @@ def after_request(response):
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
     return response
 
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    return jsonify({'status': 'ok'}), 200
+
 @app.route('/api/projects', methods=['GET'])
 def get_projects():
     """Get list of all unique projects, organized by group."""
