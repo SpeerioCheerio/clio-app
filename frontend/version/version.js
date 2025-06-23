@@ -173,8 +173,13 @@ class VersionControl {
             // Toggle collapse
             groupHeader.addEventListener('click', (e) => {
                 if (e.target.closest('.project-tab')) return;
-                groupHeader.classList.toggle('collapsed');
-                groupContent.classList.toggle('collapsed');
+
+                // Use e.currentTarget to refer to the element the listener is on
+                const header = e.currentTarget;
+                const content = header.nextElementSibling; // The content div is the next sibling
+                
+                header.classList.toggle('collapsed');
+                content.classList.toggle('collapsed');
             });
         });
     }
@@ -578,10 +583,13 @@ class VersionControl {
                     oldResponse.filename,
                     newResponse.filename
                 );
+            } else {
+                // Handle cases where one or both API calls fail gracefully
+                showToast('Could not fetch version content for comparison.', 'error');
             }
         } catch (error) {
             console.error('Error loading versions for comparison:', error);
-            showToast('Error loading versions for comparison', 'error');
+            showToast('Error loading versions for comparison. Check console for details.', 'error');
         }
     }
 

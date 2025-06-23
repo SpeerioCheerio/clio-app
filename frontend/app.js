@@ -1,5 +1,7 @@
 // API Configuration
-const API_BASE_URL = 'http://localhost:5000';
+// Use a relative URL for production, and a full URL for local development
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_BASE_URL = isLocalhost ? 'http://localhost:5000' : '';
 
 // Global utilities and shared functions
 class AppUtils {
