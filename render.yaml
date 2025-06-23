@@ -1,29 +1,28 @@
 services:
-  # Backend - Python/Flask API
+  # Backend Python (Flask) Service
   - type: web
     name: clio-backend
     env: python
-    plan: free
     region: ohio
+    plan: free
     healthCheckPath: /api/health
-    buildCommand: "pip install -r backend/requirements.txt"
-    startCommand: "gunicorn --chdir backend app:app"
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.4
       - fromGroup: clio-secrets
+    buildCommand: "pip install -r backend/requirements.txt"
+    startCommand: "gunicorn --chdir backend app:app"
 
-  # Frontend - Static Site
+  # Frontend Static Site
   - type: static
     name: clio-frontend
-    plan: free
     region: ohio
+    plan: free
     staticPublishPath: ./frontend
-    # Add rewrite rules to proxy API requests to the backend
     routes:
       - type: rewrite
         source: /api/(.*)
-        destination: http://clio-backend:10000/api/$1
+        destination: https://clio-backend.onrender.com/api/$1
       - type: rewrite
         source: /*
         destination: /index.html
@@ -33,4 +32,4 @@ envVarGroups:
   - name: clio-secrets
     envVars:
       - key: OPENAI_API_KEY
-        value: "YOUR_KEY_HERE" # User will paste this in Render dashboard
+        value: "YOUR_KEY_HERE"
