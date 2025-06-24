@@ -7,6 +7,7 @@ from werkzeug.utils import secure_filename
 import sqlite3
 import openai
 import pathlib
+from flask_cors import CORS
 
 from dotenv import load_dotenv
 
@@ -19,6 +20,7 @@ import sys
 from database import init_database, get_db_connection, cleanup_old_clipboard_entries, create_uploads_directory
 
 app = Flask(__name__)
+CORS(app, origins=['http://localhost:5000', 'http://127.0.0.1:5000', 'https://clio-frontend.onrender.com'], supports_credentials=True)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 # Initialize database and directories on startup
@@ -53,36 +55,6 @@ def detect_content_type(content):
         return 'number'
     else:
         return 'text'
-
-# CORS headers for cross-origin requests
-@app.after_request
-def after_request(response):
-    # Allow requests from the frontend domain
-    origin = request.headers.get('Origin')
-    if origin and ('localhost' in origin or '127.0.0.1' in origin or 'clio-frontend.onrender.com' in origin):
-        response.headers.add('Access-Control-Allow-Origin', origin)
-    else:
-        response.headers.add('Access-Control-Allow-Origin', '*')
-    
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-    response.headers.add('Access-Control-Allow-Credentials', 'true')
-    return response
-
-# Handle preflight OPTIONS requests
-@app.route('/api/<path:subpath>', methods=['OPTIONS'])
-@app.route('/', methods=['OPTIONS'])
-def handle_options(subpath=None):
-    response = jsonify({'status': 'ok'})
-    origin = request.headers.get('Origin')
-    if origin and ('localhost' in origin or '127.0.0.1' in origin or 'clio-frontend.onrender.com' in origin):
-        response.headers.add('Access-Control-Allow-Origin', origin)
-    else:
-        response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-    response.headers.add('Access-Control-Allow-Credentials', 'true')
-    return response
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
@@ -285,44 +257,31 @@ def get_clipboard():
             'success': False,
             'error': str(e)
         }), 500
-    
-    
 
 @app.route('/api/clipboard', methods=['POST'])
 def save_clipboard():
     """Save a new clipboard entry."""
     try:
         data = request.get_json()
-        if not data:
-            return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
+        if not data or 'content' not in data:
+            return jsonify({'success': False, 'error': 'Content is required'}), 400
         
-        content = data.get('content', '').strip()
-        source_app = data.get('source_app', '')
-        
+        content = data['content'].strip()
         if not content:
             return jsonify({'success': False, 'error': 'Content cannot be empty'}), 400
         
         # Detect content type
         content_type = detect_content_type(content)
+        
+        # Get source app if provided
+        source_app = data.get('source_app', 'Unknown')
+        
+        # Generate timestamp
         timestamp = datetime.now().isoformat()
         
-        # Check if this exact content was already saved recently (within last minute)
+        # Save to database
         conn = get_db_connection()
         cursor = conn.cursor()
-        recent_time = (datetime.now() - timedelta(minutes=1)).isoformat()
-        cursor.execute('''
-            SELECT id FROM clipboard 
-            WHERE content = ? AND timestamp > ?
-        ''', (content, recent_time))
-        
-        if cursor.fetchone():
-            conn.close()
-            return jsonify({
-                'success': True,
-                'message': 'Duplicate content ignored (too recent)'
-            })
-        
-        # Save new entry
         cursor.execute('''
             INSERT INTO clipboard (content, timestamp, content_type, source_app)
             VALUES (?, ?, ?, ?)
@@ -335,7 +294,6 @@ def save_clipboard():
         return jsonify({
             'success': True,
             'entry_id': entry_id,
-            'content_type': content_type,
             'message': 'Clipboard entry saved successfully'
         })
         
@@ -362,7 +320,7 @@ def delete_clipboard_entry(entry_id):
         
         return jsonify({
             'success': True,
-            'message': 'Clipboard entry deleted successfully'
+            'message': 'Entry deleted successfully'
         })
         
     except Exception as e:
@@ -479,21 +437,19 @@ def analyze_diff():
 
 @app.route('/api/project/<project_name>', methods=['DELETE'])
 def delete_project(project_name):
-    """Delete a project and all its associated versions and files."""
+    """Delete a project and all its versions."""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # First, delete all versions for the project from the database
+        # Delete all versions for this project
         cursor.execute('DELETE FROM versions WHERE project_name = ?', (project_name,))
-        deleted_rows = cursor.rowcount
+        deleted_count = cursor.rowcount
+        
         conn.commit()
         conn.close()
-
-        if deleted_rows == 0:
-            return jsonify({'success': False, 'error': 'Project not found or already empty'}), 404
-
-        # Then, delete the project's directory from the filesystem
+        
+        # Delete project directory if it exists
         project_dir = os.path.join('uploads', 'projects', secure_filename(project_name))
         if os.path.exists(project_dir):
             import shutil
@@ -501,115 +457,125 @@ def delete_project(project_name):
         
         return jsonify({
             'success': True,
-            'message': f'Project "{project_name}" and {deleted_rows} versions deleted successfully.'
+            'message': f'Project "{project_name}" and {deleted_count} versions deleted successfully'
         })
-
+        
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @app.route('/api/group/<group_name>', methods=['DELETE'])
 def delete_group(group_name):
-    """Delete all projects within a specific group."""
+    """Delete all projects in a group."""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-
-        # Find all projects in the group
-        cursor.execute('SELECT DISTINCT project_name FROM versions WHERE group_name = ?', (group_name,))
-        projects_to_delete = [row['project_name'] for row in cursor.fetchall()]
-
-        if not projects_to_delete:
-            return jsonify({'success': False, 'error': 'Group not found or is empty'}), 404
-
-        # Delete all versions for these projects
-        placeholders = ','.join('?' for project in projects_to_delete)
-        cursor.execute(f'DELETE FROM versions WHERE project_name IN ({placeholders})', projects_to_delete)
-        deleted_rows = cursor.rowcount
+        
+        # Get all projects in this group
+        cursor.execute('SELECT project_name FROM versions WHERE group_name = ?', (group_name,))
+        projects = [row['project_name'] for row in cursor.fetchall()]
+        
+        # Delete all versions for projects in this group
+        cursor.execute('DELETE FROM versions WHERE group_name = ?', (group_name,))
+        deleted_count = cursor.rowcount
+        
         conn.commit()
-
-        # Delete project directories from filesystem
-        for project in projects_to_delete:
-            project_dir = os.path.join('uploads', 'projects', secure_filename(project))
+        conn.close()
+        
+        # Delete project directories
+        for project_name in projects:
+            project_dir = os.path.join('uploads', 'projects', secure_filename(project_name))
             if os.path.exists(project_dir):
                 import shutil
                 shutil.rmtree(project_dir)
-
-        conn.close()
+        
         return jsonify({
             'success': True,
-            'message': f'Group "{group_name}" and {deleted_rows} versions deleted successfully.'
+            'message': f'Group "{group_name}" and {deleted_count} versions deleted successfully'
         })
-
+        
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @app.route('/api/project/<old_name>', methods=['PUT'])
 def rename_project(old_name):
     """Rename a project."""
     try:
         data = request.get_json()
-        new_name = data.get('new_name', '').strip()
-
+        if not data or 'new_name' not in data:
+            return jsonify({'success': False, 'error': 'New name is required'}), 400
+        
+        new_name = data['new_name'].strip()
         if not new_name:
-            return jsonify({'success': False, 'error': 'New project name is required'}), 400
-
+            return jsonify({'success': False, 'error': 'New name cannot be empty'}), 400
+        
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Update project name in the database
+        # Update all versions for this project
         cursor.execute('UPDATE versions SET project_name = ? WHERE project_name = ?', (new_name, old_name))
-        updated_rows = cursor.rowcount
+        updated_count = cursor.rowcount
+        
         conn.commit()
         conn.close()
-
-        if updated_rows == 0:
-            return jsonify({'success': False, 'error': 'Project not found or no versions to update'}), 404
-
-        # Rename the project's directory
+        
+        # Rename project directory if it exists
         old_dir = os.path.join('uploads', 'projects', secure_filename(old_name))
         new_dir = os.path.join('uploads', 'projects', secure_filename(new_name))
-        
         if os.path.exists(old_dir):
             os.rename(old_dir, new_dir)
-            
+        
         return jsonify({
             'success': True,
-            'message': f'Project "{old_name}" renamed to "{new_name}" successfully.'
+            'message': f'Project renamed from "{old_name}" to "{new_name}" ({updated_count} versions updated)'
         })
-
+        
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @app.route('/api/project/<project_name>/group', methods=['PUT'])
 def move_project_to_group(project_name):
-    """Move a project to a new group."""
+    """Move a project to a different group."""
     try:
         data = request.get_json()
-        new_group = data.get('group_name', '').strip() or None
-
-        if not new_group:
+        if not data or 'group_name' not in data:
             return jsonify({'success': False, 'error': 'Group name is required'}), 400
-
+        
+        group_name = data['group_name'].strip() or None
+        
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        cursor.execute('UPDATE versions SET group_name = ? WHERE project_name = ?', (new_group, project_name))
-        updated_rows = cursor.rowcount
+        # Update all versions for this project
+        cursor.execute('UPDATE versions SET group_name = ? WHERE project_name = ?', (group_name, project_name))
+        updated_count = cursor.rowcount
+        
         conn.commit()
         conn.close()
-
-        if updated_rows > 0:
-            return jsonify({'success': True, 'message': f'Project "{project_name}" moved to group "{new_group}".'})
-        else:
-            return jsonify({'success': False, 'error': 'Project not found.'}), 404
-
+        
+        return jsonify({
+            'success': True,
+            'message': f'Project "{project_name}" moved to group "{group_name or "Uncategorized"}" ({updated_count} versions updated)'
+        })
+        
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
-# Serve static files for development
 @app.route('/')
 def index():
-    return "Clipboard + Version Control API Server is running!"
+    """Serve the main application."""
+    return send_from_directory('../frontend', 'index.html')
 
 if __name__ == '__main__':
     import os
