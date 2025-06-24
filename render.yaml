@@ -19,6 +19,13 @@ services:
     region: ohio
     plan: free
     staticPublishPath: ./frontend
+    routes:
+      - type: rewrite
+        source: /api/(.*)
+        destination: https://clio-backend.onrender.com/api/$1
+      - type: rewrite
+        source: /*
+        destination: /index.html
 
 # Environment Variable Group for Secrets
 envVarGroups:

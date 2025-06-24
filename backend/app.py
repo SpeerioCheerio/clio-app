@@ -20,7 +20,7 @@ import sys
 from database import init_database, get_db_connection, cleanup_old_clipboard_entries, create_uploads_directory
 
 app = Flask(__name__)
-CORS(app, origins=['http://localhost:5000', 'http://127.0.0.1:5000', 'https://clio-frontend.onrender.com'], supports_credentials=True)
+CORS(app, origins='*', supports_credentials=False)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 # Initialize database and directories on startup
