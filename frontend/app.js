@@ -1,7 +1,7 @@
 // API Configuration
-// Use a relative URL for production, and a full URL for local development
+// Use a relative URL for local development, and the full backend URL for production
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const API_BASE_URL = isLocalhost ? 'http://localhost:5000' : '';
+const API_BASE_URL = isLocalhost ? 'http://localhost:5000' : 'https://clio-backend.onrender.com';
 
 // Global utilities and shared functions
 class AppUtils {
