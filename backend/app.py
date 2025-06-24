@@ -20,7 +20,23 @@ import sys
 from database import init_database, get_db_connection, cleanup_old_clipboard_entries, create_uploads_directory
 
 app = Flask(__name__)
-CORS(app, origins='*', supports_credentials=False)
+
+# Configure CORS properly for Render deployment
+allowed_origins = [
+    'http://localhost:3000',
+    'http://localhost:5000',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5000',
+    'https://clio-frontend.onrender.com',
+    'https://clio-backend.onrender.com'
+]
+
+CORS(app, 
+     origins=allowed_origins,
+     supports_credentials=True,
+     methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+     allow_headers=['Content-Type', 'Authorization', 'X-Requested-With'])
+
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 # Initialize database and directories on startup
@@ -58,11 +74,40 @@ def detect_content_type(content):
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    return jsonify({'status': 'ok'}), 200
+    """Enhanced health check endpoint."""
+    try:
+        # Test database connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT COUNT(*) FROM versions')
+        version_count = cursor.fetchone()[0]
+        conn.close()
+        
+        return jsonify({
+            'status': 'ok',
+            'timestamp': datetime.now().isoformat(),
+            'database': 'connected',
+            'version_count': version_count,
+            'openai_key_configured': bool(api_key)
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'timestamp': datetime.now().isoformat(),
+            'error': str(e)
+        }), 500
 
-@app.route('/api/projects', methods=['GET'])
+@app.route('/api/projects', methods=['GET', 'OPTIONS'])
 def get_projects():
     """Get list of all unique projects, organized by group."""
+    # Handle preflight requests
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'ok'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+        return response
+    
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -574,8 +619,57 @@ def move_project_to_group(project_name):
 
 @app.route('/')
 def index():
-    """Serve the main application."""
-    return send_from_directory('../frontend', 'index.html')
+    """Root endpoint with API information."""
+    return jsonify({
+        'message': 'Clio Backend API',
+        'status': 'running',
+        'timestamp': datetime.now().isoformat(),
+        'endpoints': {
+            'health': '/api/health',
+            'projects': '/api/projects',
+            'versions': '/api/versions/<project>',
+            'upload': '/api/upload',
+            'clipboard': '/api/clipboard',
+            'analyze_diff': '/api/analyze-diff'
+        },
+        'cors_enabled': True,
+        'allowed_origins': allowed_origins
+    })
+
+@app.route('/api')
+def api_info():
+    """API information endpoint."""
+    return jsonify({
+        'name': 'Clio Backend API',
+        'version': '1.0.0',
+        'status': 'active',
+        'endpoints': {
+            'health': '/api/health',
+            'projects': '/api/projects',
+            'versions': '/api/versions/<project>',
+            'upload': '/api/upload',
+            'clipboard': '/api/clipboard',
+            'analyze_diff': '/api/analyze-diff'
+        }
+    })
+
+@app.route('/api/test', methods=['GET', 'OPTIONS'])
+def test_endpoint():
+    """Test endpoint for debugging CORS issues."""
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'preflight'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+        return response
+    
+    return jsonify({
+        'status': 'ok',
+        'message': 'CORS test successful',
+        'timestamp': datetime.now().isoformat(),
+        'origin': request.headers.get('Origin', 'No origin header'),
+        'method': request.method
+    })
 
 if __name__ == '__main__':
     import os

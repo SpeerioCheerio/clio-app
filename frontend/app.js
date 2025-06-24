@@ -1,7 +1,7 @@
 // API Configuration
 // Use a relative URL for production, and a full URL for local development
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const API_BASE_URL = isLocalhost ? 'http://localhost:5000' : '';
+const API_BASE_URL = isLocalhost ? 'http://localhost:5000' : 'https://clio-backend.onrender.com';
 
 // Global utilities and shared functions
 class AppUtils {
@@ -15,16 +15,31 @@ class AppUtils {
         };
 
         try {
+            console.log(`[DEBUG] Making API call to: ${url}`);
+            console.log(`[DEBUG] Options:`, { ...defaultOptions, ...options });
+            
             const response = await fetch(url, { ...defaultOptions, ...options });
             
+            console.log(`[DEBUG] Response status: ${response.status}`);
+            console.log(`[DEBUG] Response headers:`, Object.fromEntries(response.headers.entries()));
+            
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorText = await response.text();
+                console.error(`[DEBUG] Response error: ${errorText}`);
+                throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
             }
             
             const data = await response.json();
+            console.log(`[DEBUG] Response data:`, data);
             return data;
         } catch (error) {
-            console.error('API call failed:', error);
+            console.error('[DEBUG] API call failed:', error);
+            console.error('[DEBUG] Error details:', {
+                message: error.message,
+                stack: error.stack,
+                url: url,
+                options: { ...defaultOptions, ...options }
+            });
             throw error;
         }
     }
