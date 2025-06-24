@@ -54,12 +54,34 @@ def detect_content_type(content):
     else:
         return 'text'
 
-# CORS headers for local development
+# CORS headers for cross-origin requests
 @app.after_request
 def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', '*')
+    # Allow requests from the frontend domain
+    origin = request.headers.get('Origin')
+    if origin and ('localhost' in origin or '127.0.0.1' in origin or 'clio-frontend.onrender.com' in origin):
+        response.headers.add('Access-Control-Allow-Origin', origin)
+    else:
+        response.headers.add('Access-Control-Allow-Origin', '*')
+    
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    return response
+
+# Handle preflight OPTIONS requests
+@app.route('/api/<path:subpath>', methods=['OPTIONS'])
+@app.route('/', methods=['OPTIONS'])
+def handle_options(subpath=None):
+    response = jsonify({'status': 'ok'})
+    origin = request.headers.get('Origin')
+    if origin and ('localhost' in origin or '127.0.0.1' in origin or 'clio-frontend.onrender.com' in origin):
+        response.headers.add('Access-Control-Allow-Origin', origin)
+    else:
+        response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
     return response
 
 @app.route('/api/health', methods=['GET'])
