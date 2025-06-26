@@ -19,7 +19,6 @@ services:
   - type: web
     name: clio-frontend
     env: static
-    region: ohio
     plan: free
     staticPublishPath: ./frontend
     routes:
