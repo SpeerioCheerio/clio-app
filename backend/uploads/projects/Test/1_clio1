@@ -1,0 +1,11 @@
+"Create a Python desktop client to monitor clipboard:
+1. clipboard_monitor.py - watch system clipboard changes and send to Flask API
+2. key_mapper.py - create custom F6/F7/F8/F9 hotkeys for dual clipboard slots
+3. requirements.txt for desktop client
+Features:
+- Monitor clipboard every 1 second
+- Send new clipboard content to http://localhost:5000/api/clipboard
+- Store 2 clipboard slots (A and B) locally
+- Global hotkeys: F6=copy to A, F7=copy to B, F8=paste A, F9=paste B
+- Run in system tray (optional)
+Use libraries like: pyperclip, keyboard, requests"

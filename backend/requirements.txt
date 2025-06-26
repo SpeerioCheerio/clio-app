@@ -1,8 +1,8 @@
 Flask==2.3.3
 Werkzeug==2.3.7
-transformers
-torch
-flask-cors
-openai
-python-dotenv
-gunicorn
+flask-cors==4.0.0
+openai==1.3.0
+python-dotenv==1.0.0
+gunicorn==21.2.0
+transformers==4.35.0
+torch==2.1.0

@@ -2,7 +2,8 @@ import sqlite3
 import os
 from datetime import datetime, timedelta
 
-DATABASE_FILE = 'clipboard.db'
+# Use environment variable for database path, fallback to local file
+DATABASE_FILE = os.environ.get('DATABASE_URL', 'clipboard.db')
 
 def init_database():
     """Initialize the SQLite database with required tables."""
@@ -18,7 +19,8 @@ def init_database():
             content TEXT NOT NULL,
             comment TEXT,
             timestamp TEXT NOT NULL,
-            file_hash TEXT NOT NULL
+            file_hash TEXT NOT NULL,
+            group_name TEXT
         )
     ''')
     
@@ -35,7 +37,7 @@ def init_database():
     
     conn.commit()
     conn.close()
-    print("Database initialized successfully")
+    print(f"Database initialized successfully at: {DATABASE_FILE}")
 
     # Add group_name column to versions table if it doesn't exist for project grouping
     try:

@@ -1,13 +1,18 @@
 // API Configuration
-// Use a relative URL for production, and a full URL for local development
-const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const API_BASE_URL = isLocalhost ? 'http://localhost:5000' : 'https://clio-backend.onrender.com';
+// Use relative URLs for production deployment - this will automatically work with the current domain
+const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+    ? 'http://localhost:5000' 
+    : ''; // Empty string means use relative URLs (same domain)
+
+console.log('[DEBUG] API_BASE_URL:', API_BASE_URL);
+console.log('[DEBUG] Current hostname:', window.location.hostname);
+console.log('[DEBUG] Is localhost:', window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
 // Global utilities and shared functions
 class AppUtils {
     // API call wrapper with error handling
     static async apiCall(endpoint, options = {}) {
-        const url = `${API_BASE_URL}${endpoint}`;
+        const url = API_BASE_URL ? `${API_BASE_URL}${endpoint}` : endpoint;
         const defaultOptions = {
             headers: {
                 'Content-Type': 'application/json',
@@ -345,6 +350,20 @@ class AppUtils {
         } finally {
             submitBtn.disabled = false;
             submitBtn.textContent = originalText;
+        }
+    }
+
+    // Test API connectivity
+    static async testAPI() {
+        console.log('[DEBUG] Testing API connectivity...');
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/test`);
+            const data = await response.json();
+            console.log('[DEBUG] API test successful:', data);
+            return { success: true, data };
+        } catch (error) {
+            console.error('[DEBUG] API test failed:', error);
+            return { success: false, error: error.message };
         }
     }
 }

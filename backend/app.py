@@ -21,21 +21,18 @@ from database import init_database, get_db_connection, cleanup_old_clipboard_ent
 
 app = Flask(__name__)
 
-# Configure CORS properly for Render deployment
-allowed_origins = [
-    'http://localhost:3000',
-    'http://localhost:5000',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:5000',
-    'https://clio-frontend.onrender.com',
-    'https://clio-backend.onrender.com'
-]
-
-CORS(app, 
-     origins=allowed_origins,
-     supports_credentials=True,
-     methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-     allow_headers=['Content-Type', 'Authorization', 'X-Requested-With'])
+# Production-ready CORS configuration
+# Allow specific origins in production, all origins in development
+if os.environ.get('FLASK_ENV') == 'production':
+    # In production, allow specific domains
+    allowed_origins = [
+        'https://clio-frontend.onrender.com',
+        'https://your-custom-domain.com'  # Add your custom domain if you have one
+    ]
+    CORS(app, origins=allowed_origins, supports_credentials=False)
+else:
+    # In development, allow all origins
+    CORS(app, origins='*', supports_credentials=False)
 
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
@@ -43,11 +40,26 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 init_database()
 create_uploads_directory()
 
+# Ensure uploads directory exists with absolute path
+uploads_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+if not os.path.exists(uploads_dir):
+    os.makedirs(uploads_dir, exist_ok=True)
+    print(f"[INFO] Created uploads directory: {uploads_dir}")
+
+# Add request logging middleware
+@app.before_request
+def log_request_info():
+    print(f"[DEBUG] {request.method} {request.path}")
+    print(f"[DEBUG] Origin: {request.headers.get('Origin', 'No origin')}")
+    print(f"[DEBUG] User-Agent: {request.headers.get('User-Agent', 'No user-agent')}")
+    if request.method == 'OPTIONS':
+        print("[DEBUG] Preflight request detected")
+
 # Initialize OpenAI API with better error handling
 api_key = os.environ.get("OPENAI_API_KEY")
 if not api_key:
     print("[ERROR] FATAL: No OpenAI API key found in environment variables!")
-    print("[ERROR] Please ensure a .env file exists in the 'backend' directory with your OPENAI_API_KEY.")
+    print("[ERROR] Please ensure OPENAI_API_KEY is set in your environment or .env file.")
 else:
     print(f"[INFO] OpenAI API key loaded successfully. Length: {len(api_key)} characters")
     print(f"[INFO] API key preview: {api_key[:20]}...{api_key[-4:]}")
@@ -127,15 +139,25 @@ def get_projects():
             grouped_projects.append({'group_name': group_name, 'projects': sorted(projects)})
 
         conn.close()
-        return jsonify({
+        
+        response = jsonify({
             'success': True,
             'projects': grouped_projects
         })
+        
+        # Add explicit CORS headers
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+        
+        return response
     except Exception as e:
-        return jsonify({
+        error_response = jsonify({
             'success': False,
             'error': str(e)
-        }), 500
+        })
+        error_response.headers.add('Access-Control-Allow-Origin', '*')
+        return error_response, 500
 
 @app.route('/api/upload', methods=['POST'])
 def upload_version():
@@ -194,14 +216,11 @@ def upload_version():
         return jsonify({
             'success': True,
             'version_id': version_id,
-            'message': f'Version saved successfully for project "{project_name}"'
+            'message': f'Version saved successfully with ID: {version_id}'
         })
-        
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        print(f"[ERROR] Upload failed: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/versions/<project>', methods=['GET'])
 def get_versions(project):
@@ -619,21 +638,19 @@ def move_project_to_group(project_name):
 
 @app.route('/')
 def index():
-    """Root endpoint with API information."""
+    """Root endpoint - redirect to frontend or show API info."""
     return jsonify({
         'message': 'Clio Backend API',
+        'version': '1.0.0',
         'status': 'running',
-        'timestamp': datetime.now().isoformat(),
         'endpoints': {
             'health': '/api/health',
             'projects': '/api/projects',
-            'versions': '/api/versions/<project>',
             'upload': '/api/upload',
             'clipboard': '/api/clipboard',
-            'analyze_diff': '/api/analyze-diff'
+            'analyze': '/api/analyze-diff'
         },
-        'cors_enabled': True,
-        'allowed_origins': allowed_origins
+        'timestamp': datetime.now().isoformat()
     })
 
 @app.route('/api')
@@ -642,14 +659,13 @@ def api_info():
     return jsonify({
         'name': 'Clio Backend API',
         'version': '1.0.0',
-        'status': 'active',
+        'description': 'Clipboard manager and version control system',
         'endpoints': {
             'health': '/api/health',
             'projects': '/api/projects',
-            'versions': '/api/versions/<project>',
             'upload': '/api/upload',
             'clipboard': '/api/clipboard',
-            'analyze_diff': '/api/analyze-diff'
+            'analyze': '/api/analyze-diff'
         }
     })
 
@@ -674,4 +690,4 @@ def test_endpoint():
 if __name__ == '__main__':
     import os
     port = int(os.environ.get("PORT", 5000))
-    app.run(debug=False, host='0.0.0.0', port=port)
+    app.run(debug=True, host='0.0.0.0', port=port)

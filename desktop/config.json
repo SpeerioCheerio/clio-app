@@ -1,0 +1,13 @@
+{
+  "api_url": "http://localhost:5000",
+  "check_interval": 1,
+  "enabled": true,
+  "auto_start": true,
+  "exclude_apps": [
+    "KeePass",
+    "1Password",
+    "Bitwarden"
+  ],
+  "min_content_length": 1,
+  "max_content_length": 10000
+}
