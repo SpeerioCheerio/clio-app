@@ -16,10 +16,8 @@ services:
     startCommand: "gunicorn --chdir backend app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120"
 
   # Frontend Static Site
-  - type: web
+  - type: static
     name: clio-frontend
-    env: static
-    plan: free
     staticPublishPath: ./frontend
     routes:
       - type: rewrite
