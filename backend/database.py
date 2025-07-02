@@ -35,6 +35,30 @@ def init_database():
         )
     ''')
     
+    # Create folder projects table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS folder_projects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            created_at TEXT NOT NULL
+        )
+    ''')
+    
+    # Create folder versions table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS folder_versions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_name TEXT NOT NULL,
+            folder_name TEXT NOT NULL,
+            folder_structure TEXT NOT NULL,
+            file_contents TEXT,
+            comment TEXT,
+            file_count INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (project_name) REFERENCES folder_projects (name)
+        )
+    ''')
+    
     conn.commit()
     conn.close()
     print(f"Database initialized successfully at: {DATABASE_FILE}")
@@ -54,6 +78,25 @@ def init_database():
             
     except Exception as e:
         print(f"[ERROR] Failed to update versions schema for grouping: {e}")
+    finally:
+        if conn:
+            conn.close()
+
+    # Add file_contents column to folder_versions table if it doesn't exist
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("PRAGMA table_info(folder_versions)")
+        columns = [col['name'] for col in cursor.fetchall()]
+        
+        if 'file_contents' not in columns:
+            cursor.execute('ALTER TABLE folder_versions ADD COLUMN file_contents TEXT')
+            conn.commit()
+            print("[INFO] Added 'file_contents' column to 'folder_versions' table for full file storage.")
+            
+    except Exception as e:
+        print(f"[ERROR] Failed to update folder_versions schema: {e}")
     finally:
         if conn:
             conn.close()
