@@ -27,7 +27,7 @@ if os.environ.get('FLASK_ENV') == 'production':
     # In production, allow specific domains - UPDATE THESE WITH YOUR ACTUAL RENDER URLS
     allowed_origins = [
         'https://clio-frontend.onrender.com',
-        'https://clio-frontend-6frc.onrender.com'  # Update with your actual frontend URL
+        'https://clio-frontend-6frc.onrender.com'  # Your actual frontend URL
     ]
     CORS(app, origins=allowed_origins, supports_credentials=False)
 else:
