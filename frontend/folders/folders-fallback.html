@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Folder Manager (Fallback) - Clio</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <main class="main-content">
+        <header class="header">
+            <h1>Folder Manager (Fallback)</h1>
+            <p class="subtitle">Select multiple files at once (works in all browsers)</p>
+            <div class="top-nav">
+                <a href="../index.html" class="top-nav-btn">Home</a>
+                <a href="../clipboard/clipboard.html" class="top-nav-btn">Clipboard History</a>
+                <a href="../version/version.html" class="top-nav-btn">Version Control</a>
+                <a href="folders.html" class="top-nav-btn">Folder Manager</a>
+            </div>
+        </header>
+
+        <div class="folders-container">
+            <!-- Sidebar Panel -->
+            <div class="sidebar-panel">
+                <div class="panel-header">
+                    <h2>📁 File Selection</h2>
+                </div>
+                
+                <div class="folder-controls">
+                    <input type="file" id="fileInput" multiple webkitdirectory style="display: none;">
+                    <button id="selectFilesBtn" class="action-btn">
+                        <span class="icon">📂</span>
+                        Select Folder Contents
+                    </button>
+                    
+                    <div id="fileInfo" class="folder-info hidden">
+                        <div class="selected-folder">
+                            <strong>Selected:</strong>
+                            <span id="folderName">None</span>
+                        </div>
+                        <div class="folder-stats">
+                            <span id="fileCount">0</span> files selected
+                        </div>
+                    </div>
+                </div>
+
+                <div class="project-integration">
+                    <h3>Project Integration</h3>
+                    <div class="form-group">
+                        <label>Project Name:</label>
+                        <input type="text" id="projectName" class="form-input" placeholder="Enter project name" />
+                    </div>
+                    <div class="form-group">
+                        <label>Group (optional):</label>
+                        <select id="groupSelect" class="form-input">
+                            <option value="">Select group...</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Panel -->
+            <div class="main-panel">
+                <div class="panel-header">
+                    <h2>📊 Selected Files</h2>
+                    <div class="tree-controls">
+                        <button id="downloadAllBtn" class="action-btn" disabled>
+                            Download All (.zip)
+                        </button>
+                    </div>
+                </div>
+
+                <div id="fileListContainer" class="folder-tree-container">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📁</div>
+                        <h3>No files selected</h3>
+                        <p>Click "Select Folder Contents" to choose multiple files</p>
+                        <p><small>⚠️ This fallback works in all browsers but requires selecting files individually</small></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="../app.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script>
+        class FallbackFolderManager {
+            constructor() {
+                this.selectedFiles = [];
+                this.projects = [];
+                
+                this.initializeEventListeners();
+                this.loadProjects();
+            }
+
+            initializeEventListeners() {
+                document.getElementById('selectFilesBtn').addEventListener('click', () => {
+                    document.getElementById('fileInput').click();
+                });
+
+                document.getElementById('fileInput').addEventListener('change', (e) => {
+                    this.handleFileSelection(e.target.files);
+                });
+
+                document.getElementById('downloadAllBtn').addEventListener('click', () => {
+                    this.downloadAllFiles();
+                });
+            }
+
+            async loadProjects() {
+                try {
+                    const response = await AppUtils.apiCall('/api/projects');
+                    if (response.success) {
+                        this.projects = response.projects;
+                        this.updateGroupSelector();
+                    }
+                } catch (error) {
+                    console.error('Error loading projects:', error);
+                }
+            }
+
+            updateGroupSelector() {
+                const select = document.getElementById('groupSelect');
+                select.innerHTML = '<option value="">Select group...</option>';
+                
+                const groups = [...new Set(this.projects.map(p => p.group_name).filter(Boolean))];
+                groups.sort().forEach(group => {
+                    const option = document.createElement('option');
+                    option.value = group;
+                    option.textContent = group;
+                    select.appendChild(option);
+                });
+            }
+
+            handleFileSelection(files) {
+                this.selectedFiles = Array.from(files);
+                
+                if (this.selectedFiles.length > 0) {
+                    const firstFile = this.selectedFiles[0];
+                    const folderPath = firstFile.webkitRelativePath;
+                    const folderName = folderPath.split('/')[0];
+                    
+                    document.getElementById('folderName').textContent = folderName;
+                    document.getElementById('fileCount').textContent = this.selectedFiles.length;
+                    document.getElementById('fileInfo').classList.remove('hidden');
+                    document.getElementById('downloadAllBtn').disabled = false;
+                    
+                    // Auto-fill project name
+                    const projectInput = document.getElementById('projectName');
+                    if (!projectInput.value) {
+                        projectInput.value = folderName;
+                    }
+                    
+                    this.renderFileList();
+                    AppUtils.showToast(`Selected ${this.selectedFiles.length} files from ${folderName}`, 'success');
+                }
+            }
+
+            renderFileList() {
+                const container = document.getElementById('fileListContainer');
+                container.innerHTML = '';
+
+                this.selectedFiles.forEach((file, index) => {
+                    const fileDiv = document.createElement('div');
+                    fileDiv.className = 'tree-node file';
+                    
+                    fileDiv.innerHTML = `
+                        <div class="tree-node-header">
+                            <div class="tree-node-icon"></div>
+                            <div class="tree-node-name">${file.webkitRelativePath || file.name}</div>
+                            <div class="tree-node-actions">
+                                <button class="tree-node-btn" onclick="fallbackManager.downloadFile(${index})">
+                                    Download
+                                </button>
+                                <button class="tree-node-btn" onclick="fallbackManager.addFileVersion(${index})">
+                                    Add Version
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    container.appendChild(fileDiv);
+                });
+            }
+
+            downloadFile(index) {
+                const file = this.selectedFiles[index];
+                const url = URL.createObjectURL(file);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = file.name;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                
+                URL.revokeObjectURL(url);
+                AppUtils.showToast(`Downloaded: ${file.name}`, 'success');
+            }
+
+            async downloadAllFiles() {
+                if (this.selectedFiles.length === 0) return;
+                
+                try {
+                    AppUtils.showToast('Creating ZIP archive...', 'info');
+                    
+                    const zip = new JSZip();
+                    
+                    for (const file of this.selectedFiles) {
+                        const path = file.webkitRelativePath || file.name;
+                        zip.file(path, file);
+                    }
+                    
+                    const content = await zip.generateAsync({ type: 'blob' });
+                    const url = URL.createObjectURL(content);
+                    
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `selected-files.zip`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    
+                    URL.revokeObjectURL(url);
+                    AppUtils.showToast(`Downloaded: selected-files.zip`, 'success');
+                } catch (error) {
+                    console.error('Error creating ZIP:', error);
+                    AppUtils.showToast('Error creating ZIP archive', 'error');
+                }
+            }
+
+            async addFileVersion(index) {
+                const file = this.selectedFiles[index];
+                const projectName = document.getElementById('projectName').value.trim();
+                const groupName = document.getElementById('groupSelect').value || null;
+                
+                if (!projectName) {
+                    AppUtils.showToast('Please enter a project name', 'warning');
+                    document.getElementById('projectName').focus();
+                    return;
+                }
+
+                try {
+                    const content = await file.text();
+                    
+                    const formData = new FormData();
+                    formData.append('project_name', projectName);
+                    formData.append('filename', file.name);
+                    formData.append('content', content);
+                    formData.append('comment', `Added from file selection: ${file.webkitRelativePath || file.name}`);
+                    if (groupName) {
+                        formData.append('group_name', groupName);
+                    }
+
+                    const response = await AppUtils.apiCall('/api/upload', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {}
+                    });
+
+                    if (response.success) {
+                        AppUtils.showToast(`Added ${file.name} to project "${projectName}"`, 'success');
+                    } else {
+                        AppUtils.showToast(response.error || 'Error adding file version', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error adding file version:', error);
+                    AppUtils.showToast('Error adding file version', 'error');
+                }
+            }
+        }
+
+        // Initialize fallback manager
+        document.addEventListener('DOMContentLoaded', () => {
+            window.fallbackManager = new FallbackFolderManager();
+        });
+    </script>
+</body>
+</html> 

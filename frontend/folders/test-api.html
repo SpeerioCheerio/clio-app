@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File System API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .result { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        button { padding: 10px 20px; font-size: 16px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="top-nav">
+        <a href="../index.html" class="top-nav-btn">Home</a>
+        <a href="../clipboard/clipboard.html" class="top-nav-btn">Clipboard History</a>
+        <a href="../version/version.html" class="top-nav-btn">Version Control</a>
+        <a href="../folders/folders.html" class="top-nav-btn">Folder Manager</a>
+    </div>
+    
+    <h1>File System Access API Test</h1>
+    
+    <div id="browserInfo"></div>
+    <div id="apiSupport"></div>
+    
+    <button id="testButton">Test Folder Selection</button>
+    
+    <div id="result"></div>
+
+    <script>
+        // Display browser info
+        document.getElementById('browserInfo').innerHTML = `
+            <div class="result">
+                <strong>Browser:</strong> ${navigator.userAgent}<br>
+                <strong>Platform:</strong> ${navigator.platform}
+            </div>
+        `;
+
+        // Check API support
+        const supported = 'showDirectoryPicker' in window;
+        document.getElementById('apiSupport').innerHTML = `
+            <div class="result ${supported ? 'success' : 'error'}">
+                <strong>File System Access API:</strong> ${supported ? 'SUPPORTED ✅' : 'NOT SUPPORTED ❌'}
+            </div>
+        `;
+
+        // Test button
+        document.getElementById('testButton').addEventListener('click', async () => {
+            const resultDiv = document.getElementById('result');
+            
+            if (!supported) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        ❌ File System Access API is not supported in this browser.<br>
+                        Please use Chrome, Edge, or Opera (version 86+).
+                    </div>
+                `;
+                return;
+            }
+
+            try {
+                resultDiv.innerHTML = `
+                    <div class="result">
+                        📂 Opening folder picker...
+                    </div>
+                `;
+
+                const dirHandle = await window.showDirectoryPicker();
+                
+                resultDiv.innerHTML = `
+                    <div class="result success">
+                        ✅ SUCCESS! Selected folder: <strong>${dirHandle.name}</strong>
+                    </div>
+                `;
+                
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    resultDiv.innerHTML = `
+                        <div class="result">
+                            ℹ️ Folder selection was cancelled.
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="result error">
+                            ❌ Error: ${error.message}<br>
+                            Error type: ${error.name}
+                        </div>
+                    `;
+                    console.error('Folder selection error:', error);
+                }
+            }
+        });
+    </script>
+</body>
+</html> 

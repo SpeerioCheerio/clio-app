@@ -10,7 +10,6 @@ services:
     plan: free            # starter/free/standard... free *is* valid for web
     branch: main          # optional – explicit is clearer
     healthCheckPath: /api/health
-    pythonVersion: 3.10
 
     buildCommand: pip install -r backend/requirements.txt
     startCommand: gunicorn --chdir backend app:app \
@@ -21,6 +20,8 @@ services:
         value: 3.11.4
       - key: FLASK_ENV
         value: production
+      - key: DATABASE_URL
+        value: clipboard.db
       - fromGroup: clio-secrets
 
   # -------------------  FRONT-END  -------------------

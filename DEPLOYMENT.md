@@ -1,169 +1,189 @@
-# Deployment Guide for Render
+# Deployment Guide for Clio on Render
 
-This guide will help you deploy your clipboard version app to Render.
+This guide will help you deploy your Clio clipboard and version control app to Render with separate backend and frontend services.
 
-## Prerequisites
+## 🚀 Quick Deployment (Recommended)
 
-1. A Render account (free tier available)
-2. Your OpenAI API key
-3. Git repository with your code
+### Prerequisites
+- A Render account (free tier available)
+- Your OpenAI API key
+- Git repository with your code pushed to GitHub/GitLab
 
-## Step 1: Prepare Your Repository
+### Step 1: Deploy Using Blueprint (render.yaml)
 
-Your repository should have the following structure:
-```
-clipboard-version-app/
-├── backend/
-│   ├── app.py
-│   ├── database.py
-│   ├── requirements.txt
-│   ├── .env (create from env.template)
-│   └── uploads/
-│       └── projects/
-├── frontend/
-│   ├── index.html
-│   ├── app.js
-│   ├── style.css
-│   ├── assets/
-│   ├── clipboard/
-│   │   ├── clipboard.html
-│   │   └── clipboard.js
-│   └── version/
-│       ├── version.html
-│       ├── version.js
-│       └── diff.js
-├── desktop/ (for local desktop applications)
-│   ├── clipboard_monitor.py
-│   ├── key_mapper.py
-│   ├── requirements.txt
-│   ├── config.json
-│   └── clipboard_slots.json
-├── docs/
-├── render.yaml
-└── README.md
-```
+1. **Push your code to GitHub**
+   ```bash
+   git add .
+   git commit -m "Prepare for deployment"
+   git push origin main
+   ```
 
-## Step 2: Deploy to Render
+2. **Deploy on Render**
+   - Go to [Render Dashboard](https://dashboard.render.com/)
+   - Click "New" → "Blueprint"
+   - Connect your Git repository
+   - Render will automatically detect the `render.yaml` file and create both services
 
-### Option A: Using render.yaml (Recommended)
+3. **Set Environment Variables**
+   - In the Render dashboard, go to your backend service
+   - Go to "Environment"
+   - Add your `OPENAI_API_KEY` (this will be automatically added to the clio-secrets group)
 
-1. Push your code to a Git repository (GitHub, GitLab, etc.)
-2. Go to [Render Dashboard](https://dashboard.render.com/)
-3. Click "New" → "Blueprint"
-4. Connect your Git repository
-5. Render will automatically detect the `render.yaml` file and create both services
+4. **Update CORS Settings**
+   - After deployment, note your frontend URL (e.g., `https://your-frontend-name.onrender.com`)
+   - Update `backend/app.py` line 27 with your actual frontend URL:
+   ```python
+   allowed_origins = [
+       'https://your-actual-frontend-url.onrender.com',  # Replace with your URL
+   ]
+   ```
+   - Commit and push this change
 
-### Option B: Manual Deployment
+### Step 2: Test Your Deployment
 
-#### Backend Service
-1. Go to [Render Dashboard](https://dashboard.render.com/)
-2. Click "New" → "Web Service"
-3. Connect your Git repository
-4. Configure the service:
-   - **Name**: `clio-backend`
-   - **Environment**: `Python`
-   - **Build Command**: `pip install -r backend/requirements.txt`
-   - **Start Command**: `gunicorn --chdir backend app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120`
-   - **Health Check Path**: `/api/health`
+Your app will be available at:
+- **Frontend**: `https://your-frontend-name.onrender.com`
+- **Backend API**: `https://your-backend-name.onrender.com/api/health`
 
-#### Frontend Service
-1. Click "New" → "Static Site"
-2. Connect your Git repository
-3. Configure the service:
-   - **Name**: `clio-frontend`
-   - **Build Command**: Leave empty
-   - **Publish Directory**: `frontend`
+Test all functionality:
+- ✅ Dashboard loads
+- ✅ Clipboard history (if using local desktop components)
+- ✅ Version control (upload/view versions)
+- ✅ Folder manager (Chrome/Edge/Opera only)
 
-## Step 3: Configure Environment Variables
+## 📋 Pre-Deployment Changes Summary
 
-### Backend Environment Variables
-In your backend service settings, add these environment variables:
+The following changes have been made to prepare for deployment:
 
-1. **OPENAI_API_KEY**: Your OpenAI API key
-2. **FLASK_ENV**: `production`
-3. **PYTHON_VERSION**: `3.11.4`
+### ✅ Fixed Issues
+1. **API URL Configuration**: Removed duplicate API_BASE_URL definitions
+2. **CORS Configuration**: Updated for production URLs
+3. **Environment Variables**: Configured for production
+4. **File Structure**: Verified all necessary files are included
 
-### Frontend Configuration
-The frontend will automatically detect the deployment environment and use relative URLs.
+### ⚠️ Important Notes
 
-## Step 4: Update CORS Settings
+#### Data Persistence
+- **SQLite Database**: Your data will be lost on service restarts (Render free tier limitation)
+- **File Uploads**: Uploaded files are stored temporarily and will be lost on restart
+- **Recommendation**: For production use, consider upgrading to PostgreSQL
 
-If you're using a custom domain, update the CORS settings in `backend/app.py`:
+#### Desktop Components (Local Only)
+The `desktop/` folder contains local applications that are **NOT deployed**:
+- `clipboard_monitor.py` - Must run locally to monitor clipboard
+- `key_mapper.py` - Must run locally for keyboard shortcuts
+- These communicate with your deployed web application
+
+#### Browser Compatibility
+- **Folder Manager**: Requires Chrome, Edge, or Opera (version 86+)
+- **Other features**: Work in all modern browsers
+
+## 🔧 Manual Deployment (Alternative)
+
+If you prefer to deploy manually:
+
+### Backend Service
+1. **Create Web Service**
+   - Type: Web Service
+   - Name: `clio-backend`
+   - Environment: Python
+   - Build Command: `pip install -r backend/requirements.txt`
+   - Start Command: `gunicorn --chdir backend app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120`
+   - Health Check Path: `/api/health`
+
+### Frontend Service
+1. **Create Static Site**
+   - Type: Static Site
+   - Name: `clio-frontend`
+   - Build Command: (leave empty)
+   - Publish Directory: `frontend`
+
+## 🚨 Post-Deployment Tasks
+
+### 1. Update CORS Settings
+After deployment, update `backend/app.py` with your actual frontend URL:
 
 ```python
+# Line ~27 in backend/app.py
 allowed_origins = [
-    'https://clio-frontend.onrender.com',
-    'https://your-custom-domain.com'  # Add your domain here
+    'https://your-actual-frontend-url.onrender.com',  # Your real URL here
 ]
 ```
 
-## Step 5: Test Your Deployment
+### 2. Set Up Local Desktop Components (Optional)
+If you want clipboard monitoring:
 
-1. Wait for both services to deploy (this may take 5-10 minutes)
-2. Test the backend health endpoint: `https://your-backend-url.onrender.com/api/health`
-3. Test the frontend: `https://your-frontend-url.onrender.com`
-4. Test the clipboard page: `https://your-frontend-url.onrender.com/clipboard/clipboard.html`
-5. Test the version control page: `https://your-frontend-url.onrender.com/version/version.html`
+1. **Update desktop configuration**
+   ```json
+   // desktop/config.json
+   {
+       "api_url": "https://your-backend-url.onrender.com",
+       "check_interval": 2
+   }
+   ```
 
-## Important Notes About Components
+2. **Run locally**
+   ```bash
+   cd desktop
+   python clipboard_monitor.py  # Terminal 1
+   python key_mapper.py         # Terminal 2
+   ```
 
-### Web Application (Deployed on Render)
-- **Backend**: Flask API server with database and file storage
-- **Frontend**: Static web application with clipboard and version control interfaces
-- **Assets**: Static files (images, icons, etc.)
+### 3. Test All Features
+- **Home Dashboard**: Should load and show statistics
+- **Clipboard History**: Works with desktop component or manual entries
+- **Version Control**: Upload files, view versions, compare diffs
+- **Folder Manager**: Browse local folders (Chrome/Edge/Opera only)
 
-### Desktop Applications (Local Only)
-The `desktop/` folder contains local desktop applications that are **NOT deployed** to Render:
-- **clipboard_monitor.py**: Monitors system clipboard and sends data to the web API
-- **key_mapper.py**: Provides keyboard shortcuts for clipboard management
-- **config.json**: Configuration for desktop applications
-- **clipboard_slots.json**: Local clipboard slot storage
-
-These desktop applications are designed to run locally on your computer and communicate with the deployed web application.
-
-## Troubleshooting
+## 🛠️ Troubleshooting
 
 ### Common Issues
 
-1. **Build Failures**
-   - Check the build logs in Render dashboard
-   - Ensure all dependencies are in `requirements.txt`
-   - Verify Python version compatibility
+1. **CORS Errors**
+   - Verify frontend URL is in backend CORS settings
+   - Check that both services are running
 
-2. **CORS Errors**
-   - Check that the frontend URL is in the allowed origins list
-   - Verify the backend is running and accessible
+2. **API Connection Issues**
+   - Test backend health: `https://your-backend-url.onrender.com/api/health`
+   - Check environment variables are set
 
-3. **Database Issues**
-   - Render uses ephemeral storage, so data will be lost on restarts
-   - Consider using a persistent database service for production
+3. **File Upload Issues**
+   - Files are stored temporarily on Render free tier
+   - Consider cloud storage for production
 
-4. **OpenAI API Key Issues**
-   - Ensure the API key is correctly set in environment variables
-   - Check that the key has sufficient credits
+4. **OpenAI Features Not Working**
+   - Verify `OPENAI_API_KEY` is set in Render dashboard
+   - Check API key has sufficient credits
 
-5. **Missing Frontend Pages**
-   - Ensure all frontend files are included in the repository
-   - Check that the static site is serving all subdirectories
+5. **Data Loss on Restart**
+   - Normal behavior on Render free tier
+   - Upgrade to paid plan or use external database for persistence
 
 ### Logs and Debugging
-
-- View logs in the Render dashboard under each service
-- Use the `/api/health` endpoint to check backend status
+- View service logs in Render dashboard
+- Use `/api/health` endpoint to check backend status
 - Check browser console for frontend errors
 
-## Production Considerations
+## 🎯 Production Recommendations
 
-1. **Database**: Consider using a persistent database service (PostgreSQL, MongoDB)
-2. **File Storage**: Use cloud storage (AWS S3, Google Cloud Storage) for file uploads
-3. **Security**: Implement proper authentication and authorization
-4. **Monitoring**: Set up monitoring and alerting for production use
-5. **Backup**: Implement regular backups of your data
+### For Serious Use
+1. **Database**: Upgrade to PostgreSQL for data persistence
+2. **File Storage**: Use AWS S3 or Google Cloud Storage
+3. **Monitoring**: Set up uptime monitoring
+4. **Backup**: Regular database backups
+5. **Security**: Implement authentication if handling sensitive data
 
-## Support
+### Performance Optimization
+1. **Render Plan**: Consider upgrading from free tier for better performance
+2. **CDN**: Use a CDN for static assets if you have many users
+3. **Caching**: Implement appropriate caching strategies
 
-If you encounter issues:
-1. Check the Render documentation
-2. Review the application logs
-3. Test locally first to isolate issues
-4. Consider upgrading to a paid plan for better support 
+## 📞 Support
+
+- **Render Documentation**: [https://render.com/docs](https://render.com/docs)
+- **Check Service Status**: Use the health check endpoint
+- **Logs**: Available in Render dashboard for each service
+
+---
+
+**Note**: This deployment uses Render's free tier by default. While perfect for testing and personal use, consider upgrading to paid plans for production applications that require guaranteed uptime and data persistence. 

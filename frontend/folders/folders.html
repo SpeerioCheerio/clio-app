@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Folder Manager - Clio</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="../clio_flavicon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="../clio_flavicon.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../clio_flavicon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="../clio_flavicon.png">
+    
+    <link rel="stylesheet" href="../style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        /* Folder manager specific styles */
+        .folder-container {
+            display: grid;
+            grid-template-columns: 1fr 2.5fr 2.2fr;
+            gap: 2.5rem;
+            height: 100vh;
+            padding: 0 0;
+            max-width: 2800px;
+            margin: 0 auto;
+            justify-content: center;
+        }
+
+        .card-panel {
+            background: var(--surface-color);
+            border-radius: 0.75rem;
+            padding: 2.5rem 2rem;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            min-height: 90vh;
+            font-size: 1rem;
+        }
+
+        .project-panel {
+            min-width: 260px;
+            max-width: 350px;
+            padding-right: 1.5rem;
+        }
+
+        .folder-history-panel {
+            min-width: 550px;
+            max-width: 900px;
+        }
+
+        .upload-panel {
+            min-width: 700px;
+            max-width: 1100px;
+            min-height: 95vh;
+        }
+
+        .upload-panel .form-group {
+            margin-bottom: 2rem;
+        }
+
+        .panel-header {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .panel-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .folder-heading {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .folder-project-bubble {
+            padding: 0.5rem 0.75rem;
+            margin: 0.25rem 0;
+            background: var(--background-color);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.875rem;
+        }
+
+        .folder-project-bubble:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .folder-project-bubble.selected {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        /* Form styles */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group.flex {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .form-group.flex label {
+            min-width: 80px;
+            margin-bottom: 0;
+        }
+
+        .form-group select {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            background: var(--background-color);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary {
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border-color);
+            background: var(--background-color);
+            color: var(--text-primary);
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-secondary:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            background: var(--background-color);
+            color: var(--text-primary);
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .select-folder-area {
+            border: 2px dashed var(--border-color);
+            border-radius: 0.75rem;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            transition: border-color 0.2s ease;
+            background: var(--background-color);
+        }
+
+        .select-folder-area:hover {
+            border-color: var(--primary-color);
+            background: rgba(37, 99, 235, 0.05);
+        }
+
+        .folder-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .select-folder-text {
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .select-folder-btn {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .submit-btn {
+            background: var(--success-color);
+            color: white;
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .submit-btn:disabled {
+            background: var(--secondary-color);
+            cursor: not-allowed;
+        }
+
+        /* Folder tree styles */
+        .folder-tree {
+            background: var(--background-color);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .tree-node {
+            padding: 0.25rem 0;
+            user-select: none;
+        }
+
+        .tree-node-content {
+            display: flex;
+            align-items: center;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+        }
+
+        .tree-node-content:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .tree-indent {
+            width: 1rem;
+            display: inline-block;
+        }
+
+        .tree-icon {
+            margin-right: 0.5rem;
+            width: 1rem;
+            text-align: center;
+        }
+
+        .tree-name {
+            flex: 1;
+        }
+
+        .tree-children {
+            margin-left: 1rem;
+        }
+
+        .tree-toggle {
+            margin-right: 0.25rem;
+            width: 0.75rem;
+            height: 0.75rem;
+            cursor: pointer;
+        }
+
+        /* Folder version list */
+        .folder-version-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .folder-version-item {
+            background: var(--background-color);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .folder-version-item:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.1);
+        }
+
+        .folder-version-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 0.5rem;
+        }
+
+        .folder-version-info {
+            flex: 1;
+        }
+
+        .folder-version-name {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .folder-version-comment {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .folder-version-meta {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .folder-version-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .action-btn-small {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            border: 1px solid var(--border-color);
+            background: var(--surface-color);
+            border-radius: 0.25rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .action-btn-small:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        /* Context Menu */
+        .context-menu {
+            display: none;
+            position: absolute;
+            z-index: 1000;
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 0.5rem 0;
+            min-width: 150px;
+        }
+
+        .context-menu ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .context-menu li {
+            padding: 0.75rem 1.25rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+
+        .context-menu li:hover {
+            background-color: var(--background-color);
+        }
+
+        .context-menu li.danger-option:hover {
+            background-color: #fee2e2; /* light red */
+            color: #b91c1c; /* dark red */
+        }
+
+        @media (max-width: 1600px) {
+            .folder-container {
+                grid-template-columns: 1fr 2fr 1.8fr;
+                max-width: 1600px;
+            }
+            .upload-panel {
+                min-width: 400px;
+                max-width: 700px;
+            }
+        }
+
+        /* Structure Modal Styles */
+        .structure-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            backdrop-filter: blur(4px);
+        }
+
+        .structure-modal {
+            background: var(--surface-color);
+            border-radius: 1rem;
+            width: 90vw;
+            max-width: 1200px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+        }
+
+        .structure-modal-header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+            color: white;
+        }
+
+        .structure-modal-header h3 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .structure-modal-close {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            color: white;
+            cursor: pointer;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s ease;
+        }
+
+        .structure-modal-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .structure-modal-content {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .structure-modal-info {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--background-color);
+        }
+
+        .structure-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .structure-info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .structure-info-item.structure-info-comment {
+            grid-column: 1 / -1;
+        }
+
+        .structure-info-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .structure-info-value {
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .structure-tree-container {
+            flex: 1;
+            padding: 1.5rem 2rem;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .structure-tree-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .structure-tree-header h4 {
+            margin: 0;
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .structure-tree-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-small {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.75rem;
+            border-radius: 0.375rem;
+        }
+
+        .structure-tree {
+            flex: 1;
+            overflow-y: auto;
+            background: var(--background-color);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+
+        .structure-tree-node {
+            margin-bottom: 0.25rem;
+        }
+
+        .structure-tree-node-content {
+            display: flex;
+            align-items: center;
+            padding: 0.375rem 0.5rem;
+            border-radius: 0.375rem;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            group: hover;
+        }
+
+        .structure-tree-node-content:hover {
+            background: rgba(37, 99, 235, 0.1);
+        }
+
+        .structure-tree-toggle {
+            width: 1rem;
+            height: 1rem;
+            margin-right: 0.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            user-select: none;
+        }
+
+        .structure-tree-toggle-spacer {
+            width: 1rem;
+            height: 1rem;
+            margin-right: 0.5rem;
+        }
+
+        .structure-tree-icon {
+            margin-right: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .structure-tree-name {
+            flex: 1;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+        }
+
+        .structure-tree-actions {
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .structure-tree-node-content:hover .structure-tree-actions {
+            opacity: 1;
+        }
+
+        .structure-tree-btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.7rem;
+            border: 1px solid var(--border-color);
+            background: var(--surface-color);
+            color: var(--text-primary);
+            border-radius: 0.25rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-left: 0.25rem;
+            white-space: nowrap;
+        }
+
+        .structure-tree-btn:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .structure-tree-children {
+            margin-left: 1.5rem;
+            border-left: 1px solid var(--border-color);
+            padding-left: 0.5rem;
+        }
+
+        .structure-tree-node.collapsed .structure-tree-children {
+            display: none;
+        }
+
+        .structure-tree-node.expanded .structure-tree-children {
+            display: block;
+        }
+
+        /* Help Button Styles */
+        .help-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            border-radius: 50%;
+            width: 2.5rem;
+            height: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-left: 1rem;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .help-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: scale(1.05);
+        }
+
+        .help-icon {
+            font-size: 1.1rem;
+            line-height: 1;
+        }
+
+        /* Help Modal Styles */
+        .help-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            backdrop-filter: blur(4px);
+        }
+
+        .help-modal {
+            background: var(--surface-color);
+            border-radius: 1rem;
+            width: 90vw;
+            max-width: 800px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+        }
+
+        .help-modal-header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+            color: white;
+        }
+
+        .help-modal-header h3 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .help-modal-close {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            color: white;
+            cursor: pointer;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s ease;
+        }
+
+        .help-modal-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .help-modal-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+
+        .help-modal-content h3 {
+            color: var(--primary-color);
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+        }
+
+        .help-modal-content h3:first-child {
+            margin-top: 0;
+        }
+
+        .help-modal-content h4 {
+            color: var(--text-primary);
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            font-size: 1.1rem;
+        }
+
+        .help-modal-content p {
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .help-modal-content ul {
+            margin-bottom: 1rem;
+            padding-left: 1.5rem;
+        }
+
+        .help-modal-content li {
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .help-modal-content strong {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        @media (max-width: 1100px) {
+            .folder-container {
+                grid-template-columns: 1fr;
+                max-width: 98vw;
+                padding: 1rem 0;
+            }
+            .card-panel {
+                min-width: 0;
+                max-width: 100vw;
+                margin-bottom: 1.5rem;
+            }
+            
+            .structure-modal {
+                width: 95vw;
+                max-height: 95vh;
+            }
+            
+            .structure-modal-header {
+                padding: 1rem 1.5rem;
+            }
+            
+            .structure-modal-header h3 {
+                font-size: 1.25rem;
+            }
+            
+            .structure-tree-container {
+                padding: 1rem 1.5rem;
+            }
+            
+            .structure-info-grid {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+            
+            .structure-tree-actions {
+                opacity: 1; /* Always show actions on mobile */
+            }
+            
+            .help-btn {
+                width: 2rem;
+                height: 2rem;
+                margin-left: 0.5rem;
+            }
+            
+            .help-modal {
+                width: 95vw;
+                max-height: 95vh;
+            }
+            
+            .help-modal-header {
+                padding: 1rem 1.5rem;
+            }
+            
+            .help-modal-header h3 {
+                font-size: 1.25rem;
+            }
+            
+            .help-modal-content {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="vc-layout">
+    <main class="vc-content">
+        <header class="header">
+            <h1>Folder Manager</h1>
+            <p class="subtitle">Save and track folder versions with file structure</p>
+            <div class="top-nav">
+                <a href="../index.html" class="top-nav-btn">Home</a>
+                <a href="../clipboard/clipboard.html" class="top-nav-btn">Clipboard History</a>
+                <a href="../version/version.html" class="top-nav-btn">Version Control</a>
+                <a href="folders.html" class="top-nav-btn">Folder Manager</a>
+                <button class="help-btn" id="helpBtn" title="How this page works">
+                    <span class="help-icon">?</span>
+                </button>
+            </div>
+        </header>
+        <div class="dashboard">
+            <div class="folder-container">
+                <!-- Project Panel -->
+                <div class="project-panel card-panel">
+                    <h4 class="folder-heading">Projects</h4>
+                    <div id="folderProjectsList"></div>
+                </div>
+                
+                <!-- Folder History Panel -->
+                <div class="folder-history-panel card-panel">
+                    <div class="panel-content">
+                        <div id="folderHistoryContainer"></div>
+                    </div>
+                </div>
+                
+                <!-- Create New Folder Version Panel -->
+                <div class="upload-panel card-panel">
+                    <div class="panel-header">
+                        <h2>Create New Folder Version</h2>
+                        <p class="text-muted">Select a folder to save as a new version</p>
+                    </div>
+                    <div class="panel-content">
+                        <form id="folderForm">
+                            <div class="form-group flex">
+                                <label for="folderProjectSelect">Project:</label>
+                                <select id="folderProjectSelect" class="form-input">
+                                    <option value="">Select or create project...</option>
+                                </select>
+                                <button type="button" id="newFolderProjectBtn" class="btn-secondary">+ New</button>
+                            </div>
+                            <input type="text" id="newFolderProjectInput" class="form-input hidden" placeholder="Enter project name (optional - leave empty for auto-generated name)..." style="margin-top: 0.5rem;">
+                            
+                            <div class="select-folder-area" id="selectFolderArea">
+                                <div class="folder-icon">📁</div>
+                                <div class="select-folder-text">
+                                    <p><strong>Select Folder</strong></p>
+                                    <p class="text-muted">Choose a folder to track versions</p>
+                                </div>
+                                <button type="button" class="select-folder-btn" id="selectFolderBtn">
+                                    Select Folder
+                                </button>
+                            </div>
+                            
+                            <div id="folderPreview" class="hidden">
+                                <div class="form-group">
+                                    <label>Folder Structure:</label>
+                                    <div class="folder-tree" id="folderTree"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="folderCommentInput">Version Comment (optional):</label>
+                                <input type="text" id="folderCommentInput" class="form-input" placeholder="Optional: Describe what changed...">
+                            </div>
+                            
+                            <button type="submit" class="submit-btn" id="submitFolderBtn" disabled>Save Folder Version</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Toast Notifications -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Fixed Muse Image -->
+<img src="../muse.png" alt="Clio Muse" class="muse-image">
+
+<!-- Folder Project Context Menu -->
+<div id="folderProjectContextMenu" class="context-menu">
+    <ul>
+        <li id="renameFolderProjectBtn">Rename Project</li>
+        <li id="deleteFolderProjectBtn" class="danger-option">Delete Project</li>
+    </ul>
+</div>
+
+<script src="../app.js"></script>
+<script src="folders.js"></script>
+</body>
+</html> 

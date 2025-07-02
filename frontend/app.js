@@ -366,6 +366,23 @@ class AppUtils {
             return { success: false, error: error.message };
         }
     }
+
+    // Check if browser supports File System Access API
+    static supportsFileSystemAccess() {
+        return 'showDirectoryPicker' in window;
+    }
+
+    // Create download link for blobs
+    static downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
 }
 
 // Global aliases for convenience
