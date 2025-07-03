@@ -1,7 +1,7 @@
 {
   "slots": {
-    "A": "http://localhost:5000",
+    "A": "Fetch",
     "B": "http://localhost:5000"
   },
-  "last_updated": "2025-06-09T13:16:31.429342"
+  "last_updated": "2025-07-02T16:45:12.436101"
 }

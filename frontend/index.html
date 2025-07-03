@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Clipboard & Version Control</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="clio_flavicon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="clio_flavicon.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="clio_flavicon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="clio_flavicon.png">
+    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -16,54 +23,153 @@
                 <a href="index.html" class="top-nav-btn">Home</a>
                 <a href="clipboard/clipboard.html" class="top-nav-btn">Clipboard History</a>
                 <a href="version/version.html" class="top-nav-btn">Version Control</a>
+                <a href="folders/folders.html" class="top-nav-btn">Folder Manager</a>
             </div>
         </header>
 
         <div class="dashboard">
-            <div class="feature-cards">
-                <div class="card">
-                    <div class="card-icon"></div>
-                    <h3>Clipboard History</h3>
-                    <p>View and manage your 24-hour clipboard history with smart content detection</p>
-                    <div class="card-stats">
-                        <span id="clipboardCount">Loading...</span> entries today
+            <div class="dashboard-layout">
+                <!-- Left Column - Existing Content -->
+                <div class="dashboard-main">
+                    <div class="feature-cards">
+                        <div class="card">
+                            <div class="card-icon"></div>
+                            <h3>Clipboard History</h3>
+                            <p>View and manage your 24-hour clipboard history with smart content detection</p>
+                            <div class="card-stats">
+                                <span id="clipboardCount">Loading...</span> entries today
+                            </div>
+                            <a href="clipboard/clipboard.html" class="card-button">Open Clipboard</a>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-icon"></div>
+                            <h3>Version Control</h3>
+                            <p>Track file versions with comments and visual diffs for your projects</p>
+                            <div class="card-stats">
+                                <span id="projectCount">Loading...</span> active projects
+                            </div>
+                            <a href="version/version.html" class="card-button">Manage Versions</a>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-icon"></div>
+                            <h3>Folder Manager</h3>
+                            <p>Browse local folders, download files, and integrate with version control</p>
+                            <div class="card-stats">
+                                <span id="folderSupport">Loading...</span>
+                            </div>
+                            <a href="folders/folders.html" class="card-button">Browse Folders</a>
+                        </div>
                     </div>
-                    <a href="clipboard/clipboard.html" class="card-button">Open Clipboard</a>
-                </div>
 
-                <div class="card">
-                    <div class="card-icon"></div>
-                    <h3>Version Control</h3>
-                    <p>Track file versions with comments and visual diffs for your projects</p>
-                    <div class="card-stats">
-                        <span id="projectCount">Loading...</span> active projects
+                    <div class="recent-activity">
+                        <h3>Recent Activity</h3>
+                        <div class="activity-list" id="recentActivity">
+                            <div class="loading">Loading recent activity...</div>
+                        </div>
                     </div>
-                    <a href="version/version.html" class="card-button">Manage Versions</a>
-                </div>
-            </div>
 
-            <div class="recent-activity">
-                <h3>Recent Activity</h3>
-                <div class="activity-list" id="recentActivity">
-                    <div class="loading">Loading recent activity...</div>
+                    <div class="quick-actions">
+                        <h3>Quick Actions</h3>
+                        <div class="action-buttons">
+                            <button class="action-btn" onclick="checkClipboard()">
+                                <span class="icon"></span>
+                                Sync Clipboard
+                            </button>
+                            <button class="action-btn" onclick="clearOldEntries()">
+                                <span class="icon"></span>
+                                Clear Old Data
+                            </button>
+                            <button class="action-btn" onclick="exportData()">
+                                <span class="icon"></span>
+                                Export Data
+                            </button>
+                        </div>
+                    </div>
                 </div>
-            </div>
 
-            <div class="quick-actions">
-                <h3>Quick Actions</h3>
-                <div class="action-buttons">
-                    <button class="action-btn" onclick="checkClipboard()">
-                        <span class="icon"></span>
-                        Sync Clipboard
-                    </button>
-                    <button class="action-btn" onclick="clearOldEntries()">
-                        <span class="icon"></span>
-                        Clear Old Data
-                    </button>
-                    <button class="action-btn" onclick="exportData()">
-                        <span class="icon"></span>
-                        Export Data
-                    </button>
+                <!-- Right Column - Overview Panel -->
+                <div class="overview-panel">
+                    <div class="overview-header">
+                        <h3>Getting Started with Clio</h3>
+                        <p class="overview-subtitle">Your comprehensive productivity toolkit</p>
+                    </div>
+                    
+                    <div class="overview-content">
+                        <div class="overview-section">
+                            <h4>What is Clio?</h4>
+                            <p>Clio (named after the Greek Muse of history) is your personal productivity hub that combines clipboard management and rather robust version control for both one off files and entire folders. Whether you're coding, writing, or managing files, Clio helps you stay organized and efficient!</p>
+                        </div>
+
+                        <div class="overview-section">
+                            <h4>Main Features</h4>
+                            
+                            <div class="feature-overview">
+                                <div class="feature-item">
+                                    <h5>Clipboard History</h5>
+                                    <p>Automatically captures and organizes everything you copy. Features include:</p>
+                                    <ul>
+                                        <li>24-hour history with smart content detection</li>
+                                        <li>Enhanced clipboard slots (F5-F8 hotkeys)</li>
+                                        <li>Search and filter by content type</li>
+                                        <li>Export and management tools</li>
+                                    </ul>
+                                    <p class="note"><strong>Note:</strong> Requires local setup for full functionality</p>
+                                </div>
+
+                                <div class="feature-item">
+                                    <h5>Version Control</h5>
+                                    <p>Track changes to your text files with professional-grade tools:</p>
+                                    <ul>
+                                        <li>Project and group organization</li>
+                                        <li>Visual diff comparisons</li>
+                                        <li>AI-powered change analysis</li>
+                                        <li>Comment and timestamp tracking</li>
+                                    </ul>
+                                </div>
+
+                                <div class="feature-item">
+                                    <h5>Folder Manager</h5>
+                                    <p>Browse and manage local folders with ease:</p>
+                                    <ul>
+                                        <li>Interactive file tree visualization</li>
+                                        <li>Individual file and bulk downloads</li>
+                                        <li>Version control integration</li>
+                                        <li>Project-based organization</li>
+                                    </ul>
+                                    <p class="note"><strong>Browser Support:</strong> Chrome, Edge, Opera only</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="overview-section">
+                            <h4>Quick Start Guide</h4>
+                            <ol class="start-guide">
+                                <li><strong>Choose your tool:</strong> Navigate to any tab using the top navigation</li>
+                                <li><strong>Get help:</strong> Click the <strong>?</strong> button in the top-right corner of any page for detailed instructions</li>
+                                <li><strong>Start exploring:</strong> Each tool is designed to work independently or together</li>
+                            </ol>
+                        </div>
+
+                        <div class="overview-section help-callout">
+                            <div class="help-icon">?</div>
+                            <div class="help-content">
+                                <h4>Need Help?</h4>
+                                <p>Every page has a <strong>help button (?)</strong> in the top-right corner. Click it for detailed instructions, tips, and best practices specific to that tool.</p>
+                            </div>
+                        </div>
+
+                        <div class="overview-section">
+                            <h4>Tips for Success</h4>
+                            <ul class="tips-list">
+                                <li>Use descriptive project names and comments for better organization</li>
+                                <li>Take advantage of keyboard shortcuts and hotkeys</li>
+                                <li>Regularly export important data as backups</li>
+                                <li>Explore the help sections to discover advanced features</li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -71,6 +177,9 @@
 
     <!-- Toast Notifications -->
     <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Fixed Muse Image -->
+    <img src="muse.png" alt="Clio Muse" class="muse-image">
 
     <script src="app.js"></script>
     <script>
@@ -108,6 +217,16 @@
                 const projectData = await apiCall('/api/projects');
                 if (projectData.success) {
                     document.getElementById('projectCount').textContent = projectData.projects.length;
+                }
+
+                // Check folder support
+                const folderSupportElement = document.getElementById('folderSupport');
+                if (AppUtils.supportsFileSystemAccess()) {
+                    folderSupportElement.textContent = 'Browser supported';
+                    folderSupportElement.style.color = 'var(--success-color)';
+                } else {
+                    folderSupportElement.textContent = 'Not supported';
+                    folderSupportElement.style.color = 'var(--error-color)';
                 }
             } catch (error) {
                 console.error('Error loading dashboard stats:', error);

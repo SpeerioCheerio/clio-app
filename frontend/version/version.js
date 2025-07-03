@@ -2,7 +2,7 @@
 class VersionControl {
     constructor() {
         this.currentProject = null;
-        this.projects = [];
+        this.groupedProjects = [];
         this.versions = {};
         this.selectedVersions = []; // For comparison
         
@@ -20,6 +20,11 @@ class VersionControl {
         // New project button
         document.getElementById('newProjectBtn').addEventListener('click', () => {
             this.toggleNewProjectInput();
+        });
+
+        // New group button
+        document.getElementById('newGroupBtn').addEventListener('click', () => {
+            this.toggleNewGroupInput();
         });
 
         // File upload drag and drop
@@ -77,6 +82,9 @@ class VersionControl {
                 contextMenu.style.display = 'none';
             }
         });
+
+        // Help button functionality
+        document.getElementById('helpBtn').addEventListener('click', showHelpModal);
     }
 
     async loadProjects() {
@@ -84,8 +92,10 @@ class VersionControl {
             const response = await apiCall('/api/projects');
             if (response.success) {
                 this.groupedProjects = response.projects;
+                this.loadGroupColors(); // Load saved group colors
                 this.renderProjectGroups();
                 this.updateProjectSelector();
+                this.updateGroupSelector();
                 
                 // Load first project of first group by default, only if nothing is selected
                 if (!this.currentProject && this.groupedProjects.length > 0 && this.groupedProjects[0].projects.length > 0) {
@@ -95,6 +105,18 @@ class VersionControl {
         } catch (error) {
             console.error('Error loading projects:', error);
             showToast('Error loading projects', 'error');
+            // Fallback: use demo data on error
+            this.groupedProjects = [
+                { group_name: "Demo Group", projects: ["Demo Project 1", "Demo Project 2"] },
+                { group_name: "Standalone", projects: ["Demo Project 3"] }
+            ];
+            this.loadGroupColors(); // Load saved group colors for demo data too
+            this.renderProjectGroups();
+            this.updateProjectSelector();
+            this.updateGroupSelector();
+            if (this.groupedProjects.length > 0 && this.groupedProjects[0].projects.length > 0) {
+                this.selectProject(this.groupedProjects[0].projects[0]);
+            }
         }
     }
 
@@ -103,58 +125,142 @@ class VersionControl {
         select.innerHTML = '<option value="">Select or create project...</option>';
         
         if (this.groupedProjects) {
+            // Flatten all projects from all groups into a single list
+            const allProjects = [];
             this.groupedProjects.forEach(group => {
-                if (!group || !group.projects) return; // Safeguard against bad data
-                
-                const optgroup = document.createElement('optgroup');
-                optgroup.label = this.escapeHtml(group.group_name);
-                
-                group.projects.forEach(project => {
-                    const option = document.createElement('option');
-                    option.value = project;
-                    option.textContent = project;
-                    optgroup.appendChild(option);
-                });
-                select.appendChild(optgroup);
+                if (group && group.projects) {
+                    allProjects.push(...group.projects);
+                }
+            });
+            
+            // Sort projects alphabetically and add them directly to the select
+            allProjects.sort().forEach(project => {
+                const option = document.createElement('option');
+                option.value = project;
+                option.textContent = project;
+                select.appendChild(option);
+            });
+        }
+    }
+
+    updateGroupSelector() {
+        const select = document.getElementById('groupSelect');
+        select.innerHTML = '<option value="">Select or create group...</option>';
+        
+        if (this.groupedProjects) {
+            // Get unique group names
+            const uniqueGroups = [...new Set(this.groupedProjects.map(group => group.group_name))];
+            
+            // Sort groups alphabetically and add them to the select
+            uniqueGroups.sort().forEach(groupName => {
+                const option = document.createElement('option');
+                option.value = groupName;
+                option.textContent = groupName;
+                select.appendChild(option);
             });
         }
     }
 
     renderProjectGroups() {
         const container = document.getElementById('projectGroupsList');
+        if (!container) {
+            console.error('Project groups container not found');
+            return;
+        }
+        // Track if this is the first render after page load
+        if (typeof this._groupOrderInitialized === 'undefined') {
+            this._groupOrderInitialized = false;
+        }
+        if (!this._groupOrderInitialized) {
+            const lastOpenedGroup = localStorage.getItem('lastOpenedGroup');
+            let groups = [...(this.groupedProjects || [])];
+            if (lastOpenedGroup) {
+                const idx = groups.findIndex(g => g.group_name === lastOpenedGroup);
+                if (idx > -1) {
+                    const [grp] = groups.splice(idx, 1);
+                    groups.unshift(grp);
+                }
+            }
+            this._groupOrder = groups.map(g => g.group_name);
+            this._groupOrderInitialized = true;
+            const lastOpenedProject = localStorage.getItem('lastOpenedProject');
+            if (groups.length > 0) {
+                const openGroup = groups[0];
+                if (lastOpenedProject && openGroup.projects.includes(lastOpenedProject)) {
+                    this.currentProject = lastOpenedProject;
+                } else {
+                    this.currentProject = openGroup.projects[0];
+                }
+                setTimeout(() => this.loadVersions(this.currentProject), 0);
+            }
+        }
+        const groups = this._groupOrder
+            ? this._groupOrder.map(name => (this.groupedProjects || []).find(g => g.group_name === name)).filter(Boolean)
+            : [...(this.groupedProjects || [])];
+        if (typeof this._openGroup === 'undefined') {
+            this._openGroup = groups.length > 0 ? groups[0].group_name : null;
+        }
         container.innerHTML = '';
-
-        if (!this.groupedProjects || this.groupedProjects.length === 0) {
+        if (!groups || groups.length === 0) {
             container.innerHTML = `<div class="empty-state"><p>No projects yet</p></div>`;
             return;
         }
 
-        this.groupedProjects.forEach(group => {
-            if (!group || !group.projects) return;
+        // Separate groups into actual groups and standalone projects
+        const actualGroups = groups.filter(group => 
+            group.group_name && 
+            group.group_name.toLowerCase() !== 'uncategorized' && 
+            group.group_name.trim() !== ''
+        );
+        
+        const standaloneProjects = [];
+        groups.forEach(group => {
+            if (!group.group_name || 
+                group.group_name.toLowerCase() === 'uncategorized' || 
+                group.group_name.trim() === '') {
+                if (group.projects) {
+                    standaloneProjects.push(...group.projects);
+                }
+            }
+        });
 
+        // Render actual groups first
+        actualGroups.forEach((group) => {
+            if (!group || !group.projects) return;
+            // Default color if not set
+            if (!group.color) group.color = '#fff';
             const groupEl = document.createElement('div');
             groupEl.className = 'project-group';
-            
+            const isOpen = group.group_name === this._openGroup;
             groupEl.innerHTML = `
-                <div class="project-group-header">
-                    <span class="toggle-icon">▼</span>
+                <div class="project-group-header-bubble${isOpen ? ' open' : ''}" style="background:${group.color};">
                     <span class="project-group-name">${this.escapeHtml(group.group_name)}</span>
+                    <span class="group-ellipsis" title="Group options">&#8942;</span>
                 </div>
-                <div class="project-group-content">
+                <div class="project-group-content${isOpen ? '' : ' collapsed'}">
                     <div class="project-tabs"></div>
                 </div>
             `;
-
-            const groupHeader = groupEl.querySelector('.project-group-header');
+            const groupHeader = groupEl.querySelector('.project-group-header-bubble');
             const groupContent = groupEl.querySelector('.project-group-content');
             const tabsContainer = groupEl.querySelector('.project-tabs');
-
-            // Add context menu for the group itself
-            groupHeader.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                this.showGroupContextMenu(e, group.group_name);
+            // Ellipsis menu
+            const ellipsis = groupEl.querySelector('.group-ellipsis');
+            ellipsis.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.showGroupBubbleMenu(e, group);
             });
-
+            // Toggle expand/collapse
+            groupHeader.addEventListener('click', (e) => {
+                if (e.target.classList.contains('group-ellipsis')) return;
+                if (isOpen) {
+                    this._openGroup = null;
+                } else {
+                    this._openGroup = group.group_name;
+                }
+                localStorage.setItem('lastOpenedGroup', this._openGroup || '');
+                this.renderProjectGroups();
+            });
             group.projects.forEach(project => {
                 const tab = document.createElement('div');
                 tab.className = `project-tab ${project === this.currentProject ? 'active' : ''}`;
@@ -162,43 +268,56 @@ class VersionControl {
                 tab.addEventListener('click', () => this.selectProject(project));
                 tab.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
-                    e.stopPropagation(); // Prevent group context menu from showing
+                    e.stopPropagation();
                     this.showProjectContextMenu(e, project);
                 });
                 tabsContainer.appendChild(tab);
             });
-            
             container.appendChild(groupEl);
-            
-            // Toggle collapse
-            groupHeader.addEventListener('click', (e) => {
-                if (e.target.closest('.project-tab')) return;
-
-                // Use e.currentTarget to refer to the element the listener is on
-                const header = e.currentTarget;
-                const content = header.nextElementSibling; // The content div is the next sibling
-                
-                header.classList.toggle('collapsed');
-                content.classList.toggle('collapsed');
-            });
         });
+
+        // Render standalone projects at the bottom (like ChatGPT's individual chats)
+        if (standaloneProjects.length > 0) {
+            standaloneProjects.forEach(project => {
+                const standaloneEl = document.createElement('div');
+                standaloneEl.className = `project-tab standalone-project ${project === this.currentProject ? 'active' : ''}`;
+                standaloneEl.textContent = project;
+                standaloneEl.style.marginBottom = '0.5rem';
+                standaloneEl.addEventListener('click', () => this.selectProject(project));
+                standaloneEl.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.showProjectContextMenu(e, project);
+                });
+                container.appendChild(standaloneEl);
+            });
+        }
     }
 
     async selectProject(projectName) {
         this.currentProject = projectName;
-        this.renderProjectGroups(); // Re-render to update active tab
-        document.getElementById('projectSelect').value = projectName;
+        localStorage.setItem('lastOpenedProject', projectName);
+        this.renderProjectGroups();
         await this.loadVersions(projectName);
     }
 
     async loadVersions(projectName) {
         const versionContainer = document.getElementById('versionDisplayContainer');
+        if (!versionContainer) {
+            console.error('Version display container not found');
+            return;
+        }
+        
         versionContainer.innerHTML = `<div class="loading-state">Loading versions for ${projectName}...</div>`;
 
         try {
             const response = await apiCall(`/api/versions/${encodeURIComponent(projectName)}`);
             if (response.success) {
                 const versions = response.versions;
+                
+                // Store versions in this.versions for later use (like diff comparisons)
+                this.versions[projectName] = versions;
+                
                 let versionsHtml = `
                     <h3 class="panel-subheader">Versions for: ${this.escapeHtml(projectName)}</h3>
                     <div class="version-list">
@@ -228,9 +347,7 @@ class VersionControl {
         const item = document.createElement('div');
         item.className = 'version-item';
         
-        const timeAgo = formatRelativeTime(version.timestamp);
         const formattedDate = formatDateTime(version.timestamp);
-        
         // Fix version numbering: newest version should be highest number
         const versionNumber = versionsArray.length - index;
         
@@ -238,10 +355,7 @@ class VersionControl {
             <div class="version-header">
                 <div class="version-info">
                     <div class="version-title"><strong>Version ${versionNumber}</strong></div>
-                    <div class="version-comment">${version.comment || 'No comment'}</div>
-                    <div class="version-meta">
-                        ${timeAgo} • ${formattedDate}
-                    </div>
+                    <div class="version-meta">${formattedDate}</div>
                 </div>
                 <div class="version-actions">
                     <button class="action-btn-small" onclick="versionControl.viewVersion(${version.id})">
@@ -293,14 +407,28 @@ class VersionControl {
         }
     }
 
+    toggleNewGroupInput() {
+        const select = document.getElementById('groupSelect');
+        const input = document.getElementById('newGroupInput');
+        const btn = document.getElementById('newGroupBtn');
+        
+        if (input.classList.contains('hidden')) {
+            input.classList.remove('hidden');
+            input.focus();
+            btn.textContent = 'Cancel';
+            select.disabled = true;
+        } else {
+            input.classList.add('hidden');
+            input.value = '';
+            btn.textContent = '+ New';
+            select.disabled = false;
+        }
+    }
+
     async handleFileSelect(file) {
         const contentArea = document.getElementById('contentArea');
-        const filenameInput = document.getElementById('filenameInput');
         
         try {
-            // Set filename
-            filenameInput.value = file.name;
-            
             // Check if file is binary (PDF, images, etc.)
             const isBinary = this.isBinaryFile(file);
             
@@ -351,6 +479,46 @@ class VersionControl {
         });
     }
 
+    async generateAutoProjectName() {
+        try {
+            // Get existing projects to determine the next number
+            const response = await apiCall('/api/projects');
+            let existingProjects = [];
+            
+            if (response.success && response.projects) {
+                // Flatten all projects from all groups
+                response.projects.forEach(group => {
+                    if (group.projects) {
+                        existingProjects = existingProjects.concat(group.projects);
+                    }
+                });
+            }
+            
+            // Find the highest "Project n" number
+            let maxProjectNumber = 0;
+            const projectNumberRegex = /^Project (\d+)$/;
+            
+            existingProjects.forEach(projectName => {
+                const match = projectName.match(projectNumberRegex);
+                if (match) {
+                    const number = parseInt(match[1], 10);
+                    if (number > maxProjectNumber) {
+                        maxProjectNumber = number;
+                    }
+                }
+            });
+            
+            // Return the next available project number
+            return `Project ${maxProjectNumber + 1}`;
+            
+        } catch (error) {
+            console.error('Error generating auto project name:', error);
+            // Fallback to timestamp-based name if API fails
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+            return `Project ${timestamp}`;
+        }
+    }
+
     async handleVersionSubmit() {
         const projectSelect = document.getElementById('projectSelect');
         const newProjectInput = document.getElementById('newProjectInput');
@@ -358,7 +526,8 @@ class VersionControl {
         const commentInput = document.getElementById('commentInput');
         const fileInput = document.getElementById('fileInput');
         const submitBtn = document.getElementById('submitBtn');
-        const groupInput = document.getElementById('groupInput');
+        const groupSelect = document.getElementById('groupSelect');
+        const newGroupInput = document.getElementById('newGroupInput');
         
         // Prevent double submission
         if (submitBtn.disabled) {
@@ -369,11 +538,17 @@ class VersionControl {
         let projectName;
         const newProjectName = newProjectInput.value.trim();
 
-        if (!newProjectInput.classList.contains('hidden') && newProjectName) {
-            // If the "new project" input is visible and has a value, use it
-            projectName = newProjectName;
+        if (!newProjectInput.classList.contains('hidden')) {
+            // New project input is visible
+            if (newProjectName) {
+                // User provided a name
+                projectName = newProjectName;
+            } else {
+                // User didn't provide a name, generate one automatically
+                projectName = await this.generateAutoProjectName();
+            }
         } else {
-            // Otherwise, use the dropdown
+            // Use the dropdown selection
             projectName = projectSelect.value;
         }
         
@@ -392,6 +567,18 @@ class VersionControl {
         // Get optional comment
         const comment = commentInput.value.trim() || `Version ${new Date().toLocaleString()}`;
         
+        // Determine group name
+        let groupName;
+        const newGroupName = newGroupInput.value.trim();
+        
+        if (!newGroupInput.classList.contains('hidden') && newGroupName) {
+            // If the "new group" input is visible and has a value, use it
+            groupName = newGroupName;
+        } else {
+            // Otherwise, use the dropdown
+            groupName = groupSelect.value;
+        }
+        
         // Disable submit button to prevent double submission
         submitBtn.disabled = true;
         submitBtn.textContent = 'Saving...';
@@ -401,7 +588,7 @@ class VersionControl {
         formData.append('project_name', projectName);
         formData.append('content', content);
         formData.append('comment', comment);
-        formData.append('group_name', groupInput.value.trim());
+        formData.append('group_name', groupName);
         
         // If a file was uploaded, use its name
         if (fileInput.files.length > 0) {
@@ -436,6 +623,11 @@ class VersionControl {
                 // Hide new project input if it was used
                 if (!newProjectInput.classList.contains('hidden')) {
                     this.toggleNewProjectInput();
+                }
+                
+                // Hide new group input if it was used
+                if (!newGroupInput.classList.contains('hidden')) {
+                    this.toggleNewGroupInput();
                 }
             } else {
                 showToast(data.error || 'Error saving version', 'error');
@@ -583,13 +775,10 @@ class VersionControl {
                     oldResponse.filename,
                     newResponse.filename
                 );
-            } else {
-                // Handle cases where one or both API calls fail gracefully
-                showToast('Could not fetch version content for comparison.', 'error');
             }
         } catch (error) {
             console.error('Error loading versions for comparison:', error);
-            showToast('Error loading versions for comparison. Check console for details.', 'error');
+            showToast('Error loading versions for comparison', 'error');
         }
     }
 
@@ -777,69 +966,371 @@ class VersionControl {
         }
     }
 
-    showGroupContextMenu(event, groupName) {
-        if (groupName === 'Uncategorized') return; // Cannot delete this group
-
-        const contextMenu = document.getElementById('groupContextMenu');
-        contextMenu.style.display = 'block';
-        contextMenu.style.left = `${event.pageX}px`;
-        contextMenu.style.top = `${event.pageY}px`;
-
-        document.getElementById('deleteGroupBtn').onclick = () => {
-            contextMenu.style.display = 'none';
-            this.handleDeleteGroup(groupName);
+    showGroupBubbleMenu(event, group) {
+        // Remove any existing menu
+        let menu = document.getElementById('groupBubbleMenu');
+        if (menu) menu.remove();
+        menu = document.createElement('div');
+        menu.id = 'groupBubbleMenu';
+        menu.className = 'context-menu group-bubble-menu';
+        menu.style.display = 'block';
+        menu.style.left = `${event.pageX}px`;
+        menu.style.top = `${event.pageY}px`;
+        menu.innerHTML = `
+            <ul>
+                <li id="renameGroupBubbleBtn">Rename Group</li>
+                <li id="colorGroupBubbleBtn">Change Color</li>
+                <li id="deleteGroupBubbleBtn" class="danger-option">Delete Group</li>
+            </ul>
+        `;
+        document.body.appendChild(menu);
+        // Hide on click outside
+        setTimeout(() => {
+            document.addEventListener('click', function handler(e) {
+                if (!menu.contains(e.target)) {
+                    menu.remove();
+                    document.removeEventListener('click', handler);
+                }
+            });
+        }, 0);
+        document.getElementById('renameGroupBubbleBtn').onclick = () => {
+            menu.remove();
+            this.handleRenameGroup(group);
+        };
+        document.getElementById('colorGroupBubbleBtn').onclick = () => {
+            menu.remove();
+            this.handleChangeGroupColor(group);
+        };
+        document.getElementById('deleteGroupBubbleBtn').onclick = () => {
+            menu.remove();
+            this.handleDeleteGroup(group.group_name);
         };
     }
 
-    async handleDeleteGroup(groupName) {
-        const confirmation = confirm(`Are you sure you want to delete the entire group "${groupName}"? This will delete all projects and versions within it. This action cannot be undone.`);
-        
-        if (confirmation) {
-            try {
-                const response = await apiCall(`/api/group/${encodeURIComponent(groupName)}`, {
-                    method: 'DELETE'
-                });
+    handleRenameGroup(group) {
+        const newName = prompt('Rename group:', group.group_name);
+        if (newName && newName.trim() && newName !== group.group_name) {
+            group.group_name = newName.trim();
+            this.renderProjectGroups();
+        }
+    }
 
+    handleChangeGroupColor(group) {
+        this.showColorPicker(group);
+    }
+
+    showColorPicker(group) {
+        // Remove any existing color picker
+        let colorPicker = document.getElementById('colorPickerModal');
+        if (colorPicker) colorPicker.remove();
+
+        // Create color picker modal
+        colorPicker = document.createElement('div');
+        colorPicker.id = 'colorPickerModal';
+        colorPicker.className = 'modal open';
+        
+        const presetColors = [
+            '#ffffff', '#f8fafc', '#e2e8f0', '#cbd5e1', '#94a3b8',
+            '#64748b', '#475569', '#334155', '#1e293b', '#0f172a',
+            '#fef2f2', '#fee2e2', '#fecaca', '#f87171', '#ef4444',
+            '#dc2626', '#b91c1c', '#991b1b', '#7f1d1d', '#450a0a',
+            '#fff7ed', '#fed7aa', '#fdba74', '#fb923c', '#f97316',
+            '#ea580c', '#dc2626', '#c2410c', '#9a3412', '#7c2d12',
+            '#fefce8', '#fef3c7', '#fde047', '#facc15', '#eab308',
+            '#ca8a04', '#a16207', '#854d0e', '#713f12', '#422006',
+            '#f0fdf4', '#dcfce7', '#bbf7d0', '#86efac', '#4ade80',
+            '#22c55e', '#16a34a', '#15803d', '#166534', '#14532d',
+            '#f0fdfa', '#ccfbf1', '#99f6e4', '#5eead4', '#2dd4bf',
+            '#14b8a6', '#0d9488', '#0f766e', '#115e59', '#134e4a',
+            '#f0f9ff', '#e0f2fe', '#bae6fd', '#7dd3fc', '#38bdf8',
+            '#0ea5e9', '#0284c7', '#0369a1', '#075985', '#0c4a6e',
+            '#f8faff', '#e0e7ff', '#c7d2fe', '#a5b4fc', '#818cf8',
+            '#6366f1', '#4f46e5', '#4338ca', '#3730a3', '#312e81',
+            '#faf5ff', '#f3e8ff', '#e9d5ff', '#d8b4fe', '#c084fc',
+            '#a855f7', '#9333ea', '#7c3aed', '#6d28d9', '#581c87',
+            '#fdf4ff', '#fae8ff', '#f5d0fe', '#f0abfc', '#e879f9',
+            '#d946ef', '#c026d3', '#a21caf', '#86198f', '#701a75'
+        ];
+
+        colorPicker.innerHTML = `
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3>Choose Group Color</h3>
+                    <button class="close-btn" onclick="document.getElementById('colorPickerModal').remove()">&times;</button>
+                </div>
+                <div class="modal-body" style="padding: 1.5rem;">
+                    <div style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 0.5rem; margin-bottom: 1rem;">
+                        ${presetColors.map(color => `
+                            <div class="color-option" 
+                                 data-color="${color}" 
+                                 style="
+                                     width: 32px; 
+                                     height: 32px; 
+                                     background-color: ${color}; 
+                                     border: 2px solid ${color === (group.color || '#fff') ? '#2563eb' : '#e2e8f0'}; 
+                                     border-radius: 0.375rem; 
+                                     cursor: pointer;
+                                     transition: all 0.2s ease;
+                                 "
+                                 title="${color}">
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem;">
+                        <label style="font-weight: 500;">Custom color:</label>
+                        <input type="color" id="customColorInput" value="${group.color || '#ffffff'}" 
+                               style="width: 40px; height: 32px; border: 1px solid #e2e8f0; border-radius: 0.375rem; cursor: pointer;">
+                        <span style="font-size: 0.875rem; color: #64748b;">Or pick any color</span>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                        <button class="btn-secondary" onclick="document.getElementById('colorPickerModal').remove()">
+                            Cancel
+                        </button>
+                        <button class="submit-btn" id="applyColorBtn">
+                            Apply Color
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(colorPicker);
+
+        // Handle color selection
+        let selectedColor = group.color || '#ffffff';
+        
+        // Preset color selection
+        colorPicker.querySelectorAll('.color-option').forEach(option => {
+            option.addEventListener('click', () => {
+                selectedColor = option.dataset.color;
+                
+                // Update visual selection
+                colorPicker.querySelectorAll('.color-option').forEach(opt => {
+                    opt.style.border = `2px solid ${opt.dataset.color === selectedColor ? '#2563eb' : '#e2e8f0'}`;
+                });
+                
+                // Update custom color input
+                document.getElementById('customColorInput').value = selectedColor;
+            });
+        });
+
+        // Custom color input
+        document.getElementById('customColorInput').addEventListener('change', (e) => {
+            selectedColor = e.target.value;
+            
+            // Clear preset selection borders
+            colorPicker.querySelectorAll('.color-option').forEach(opt => {
+                opt.style.border = `2px solid #e2e8f0`;
+            });
+        });
+
+        // Apply button
+        document.getElementById('applyColorBtn').addEventListener('click', () => {
+            group.color = selectedColor;
+            this.saveGroupColor(group.group_name, selectedColor);
+            this.renderProjectGroups();
+            colorPicker.remove();
+        });
+
+        // Close on background click
+        colorPicker.addEventListener('click', (e) => {
+            if (e.target === colorPicker) {
+                colorPicker.remove();
+            }
+        });
+    }
+
+    handleDeleteGroup(groupName) {
+        const confirmation = confirm(`Are you sure you want to delete the entire group "${groupName}"? This will delete all projects and versions within it. This action cannot be undone.`);
+        if (confirmation) {
+            apiCall(`/api/group/${encodeURIComponent(groupName)}`, {
+                method: 'DELETE'
+            }).then(response => {
                 if (response.success) {
                     showToast('Group deleted successfully!', 'success');
+                    // Remove the group color from localStorage when group is deleted
+                    this.removeGroupColor(groupName);
                     if (this.currentProject && this.groupedProjects.find(g => g.group_name === groupName)?.projects.includes(this.currentProject)) {
                         this.currentProject = null;
                         document.getElementById('versionDisplayContainer').innerHTML = '';
                     }
-                    await this.loadProjects();
+                    this.loadProjects();
                 } else {
                     showToast(response.error || 'Failed to delete group', 'error');
                 }
-            } catch (error) {
+            }).catch(error => {
                 console.error('Error deleting group:', error);
                 showToast('An error occurred while deleting the group.', 'error');
-            }
+            });
+        }
+    }
+
+    // Group color persistence methods
+    saveGroupColor(groupName, color) {
+        try {
+            const groupColors = this.getGroupColors();
+            groupColors[groupName] = color;
+            localStorage.setItem('groupColors', JSON.stringify(groupColors));
+        } catch (error) {
+            console.error('Error saving group color:', error);
+        }
+    }
+
+    getGroupColors() {
+        try {
+            const stored = localStorage.getItem('groupColors');
+            return stored ? JSON.parse(stored) : {};
+        } catch (error) {
+            console.error('Error loading group colors:', error);
+            return {};
+        }
+    }
+
+    removeGroupColor(groupName) {
+        try {
+            const groupColors = this.getGroupColors();
+            delete groupColors[groupName];
+            localStorage.setItem('groupColors', JSON.stringify(groupColors));
+        } catch (error) {
+            console.error('Error removing group color:', error);
+        }
+    }
+
+    loadGroupColors() {
+        const groupColors = this.getGroupColors();
+        if (this.groupedProjects) {
+            this.groupedProjects.forEach(group => {
+                if (groupColors[group.group_name]) {
+                    group.color = groupColors[group.group_name];
+                } else if (!group.color) {
+                    group.color = '#fff'; // Default color
+                }
+            });
         }
     }
 }
 
-// Global functions for button clicks
+// Help Modal Functions
+function showHelpModal() {
+    // Create modal container
+    const modal = document.createElement('div');
+    modal.className = 'help-modal-overlay';
+    modal.innerHTML = `
+        <div class="help-modal">
+            <div class="help-modal-header">
+                <h3>How Version Control Works</h3>
+                <button class="help-modal-close">&times;</button>
+            </div>
+            <div class="help-modal-content">
+                <h3>Overview</h3>
+                <p>Version Control helps you track and manage multiple versions of the same document or file. This is essential for keeping your work safe, comparing changes over time, and being able to revert to previous versions if something goes wrong.</p>
+
+                <h3>Why Use Version Control?</h3>
+                <ul>
+                    <li><strong>Safety Net:</strong> Never lose your work again - every version is saved and accessible.</li>
+                    <li><strong>Change Tracking:</strong> See exactly what changed between versions with AI-powered diffs.</li>
+                    <li><strong>Easy Recovery:</strong> Quickly go back to any previous version if you need to undo changes.</li>
+                    <li><strong>Organized Workflow:</strong> Keep related documents together in projects and groups.</li>
+                </ul>
+
+                <h3>Projects and Groups</h3>
+                <h4>What is a Project?</h4>
+                <p>A project is like a folder that contains multiple versions of the same document. For example, you might have a project called "Website Homepage" that contains different versions of your homepage code as you make changes.</p>
+
+                <h4>Standalone vs. Grouped Projects</h4>
+                <ul>
+                    <li><strong>Standalone Projects:</strong> Individual projects that exist on their own.</li>
+                    <li><strong>Groups:</strong> Collections of related projects. For example, a "Website Redesign" group might contain projects like "Homepage", "About Page", and "Contact Form".</li>
+                </ul>
+
+                <h4>Group Features</h4>
+                <ul>
+                    <li><strong>Color Coding:</strong> Assign custom colors to groups for easy visual organization.</li>
+                    <li><strong>Rename Groups:</strong> Keep your workspace organized with descriptive names.</li>
+                    <li><strong>Delete Groups:</strong> Remove entire groups when projects are no longer needed.</li>
+                </ul>
+
+                <h3>Creating and Managing Versions</h3>
+                <h4>1. Create or Select a Project</h4>
+                <p>Choose an existing project from the sidebar, or create a new one. You can also optionally assign it to a group.</p>
+
+                <h4>2. Upload or Paste Content</h4>
+                <p>You can either drag and drop a file, click to browse for a file, or paste text content directly into the text area.</p>
+
+                <h4>3. Add a Comment</h4>
+                <p>Always add a comment describing what changed in this version. Good comments help you find the right version later (e.g., "Fixed login bug" or "Added mobile responsive design").</p>
+
+                <h4>4. Save the Version</h4>
+                <p>Click "Save Version" to store your new version. It will appear in the version history with a timestamp and your comment.</p>
+
+                <h3>Working with Saved Versions</h3>
+                <ul>
+                    <li><strong>View Content:</strong> Click the "View" button to see the full content of any version in a popup window.</li>
+                    <li><strong>Download Versions:</strong> Download any version as a file to your computer.</li>
+                    <li><strong>AI Diff Comparison:</strong> Use the "Diff" button to see an intelligent comparison between two versions, highlighting exactly what changed.</li>
+                    <li><strong>Version History:</strong> All versions are listed chronologically with timestamps and comments for easy navigation.</li>
+                </ul>
+
+                <h3>Tips for Success</h3>
+                <ul>
+                    <li><strong>Comment Every Version:</strong> Descriptive comments make it easy to find the version you need later.</li>
+                    <li><strong>Save Frequently:</strong> Don't wait until major milestones - save versions as you make progress.</li>
+                    <li><strong>Use Groups Wisely:</strong> Group related projects together for better organization.</li>
+                    <li><strong>Regular Cleanup:</strong> Periodically review and delete old versions or projects you no longer need.</li>
+                </ul>
+            </div>
+        </div>
+    `;
+
+    // Add modal to page
+    document.body.appendChild(modal);
+    document.body.style.overflow = 'hidden';
+
+    // Event listeners
+    const closeBtn = modal.querySelector('.help-modal-close');
+    closeBtn.addEventListener('click', closeHelpModal);
+    
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeHelpModal();
+        }
+    });
+
+    // ESC key to close
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
+            closeHelpModal();
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+
+    // Store cleanup function
+    modal._cleanup = () => {
+        document.removeEventListener('keydown', escHandler);
+    };
+}
+
+function closeHelpModal() {
+    const modal = document.querySelector('.help-modal-overlay');
+    if (modal) {
+        if (modal._cleanup) {
+            modal._cleanup();
+        }
+        document.body.removeChild(modal);
+        document.body.style.overflow = '';
+    }
+}
+
+// Global function for closing diff modal (called from HTML)
 function closeDiffModal() {
     const modal = document.getElementById('diffModal');
-    modal.classList.remove('open');
+    if (modal) {
+        modal.classList.remove('open');
+    }
 }
 
-// Initialize version control when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize version control
-    window.versionControl = new VersionControl();
-    
-    // Handle form submission with loading state
-    const form = document.getElementById('versionForm');
-    const submitBtn = document.getElementById('submitBtn');
-    
-    form.addEventListener('submit', function(e) {
-        e.preventDefault();
-        AppUtils.handleFormSubmit(form, () => versionControl.handleVersionSubmit());
-    });
+// Initialize version control when page loads
+let versionControl;
+document.addEventListener('DOMContentLoaded', () => {
+    versionControl = new VersionControl();
 });
-
-// Export for use in other files
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = VersionControl;
-}

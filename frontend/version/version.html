@@ -3,7 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Version Control - ClipVersion</title>
+    <title>Version Control - Clio</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="../clio_flavicon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="../clio_flavicon.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../clio_flavicon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="../clio_flavicon.png">
+    
     <link rel="stylesheet" href="../style.css">
     <style>
         /* Version control specific styles */
@@ -129,14 +136,58 @@
             margin-bottom: 1rem;
         }
 
+        /* Project Select and New Project Button */
         .form-group {
             margin-bottom: 1rem;
+        }
+
+        .form-group.flex {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .form-group label {
             display: block;
             margin-bottom: 0.5rem;
-            font-weight: 500;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .form-group.flex label {
+            min-width: 80px;
+            margin-bottom: 0;
+        }
+
+        .form-group select {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            background: var(--background-color);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary {
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border-color);
+            background: var(--background-color);
+            color: var(--text-primary);
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-secondary:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .hidden {
+            display: none !important;
         }
 
         .form-input {
@@ -145,6 +196,14 @@
             border: 1px solid var(--border-color);
             border-radius: 0.5rem;
             font-size: 1rem;
+            background: var(--background-color);
+            color: var(--text-primary);
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
         }
 
         .submit-btn {
@@ -172,13 +231,20 @@
         }
 
         .project-tab {
-            padding: 0.5rem 1rem;
+            padding: 0.5rem 0.75rem;
             background: var(--background-color);
             border: 1px solid var(--border-color);
             border-radius: 0.5rem;
             cursor: pointer;
             font-size: 0.875rem;
             transition: all 0.2s ease;
+            color: var(--text-primary);
+        }
+
+        .project-tab:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
         }
 
         .project-tab.active {
@@ -590,51 +656,364 @@
             font-weight: 600;
             margin-bottom: 1rem;
         }
+
+        /* Layout Structure */
+        .vc-layout {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .vc-sidebar {
+            width: 280px;
+            background: var(--surface-color);
+            border-right: 1px solid var(--border-color);
+            padding: 1.5rem;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        .vc-content {
+            flex: 1;
+            overflow-y: auto;
+            background: var(--background-color);
+        }
+
+        .vc-heading {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .vc-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 2rem 0;
+        }
+
+        .vc-group-header {
+            font-weight: 600;
+            color: var(--text-primary);
+            padding: 0.5rem 0;
+            margin-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .vc-project-bubble {
+            padding: 0.5rem 0.75rem;
+            margin: 0.25rem 0;
+            background: var(--background-color);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.875rem;
+        }
+
+        .vc-project-bubble:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .vc-project-bubble.selected {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        /* Version Dashboard Layout */
+        .version-dashboard-flex {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 120px);
+            padding-top: 2rem;
+        }
+
+        .version-main-panel {
+            display: grid;
+            grid-template-columns: 1.1fr 1.3fr 2.8fr;
+            gap: 2.5rem;
+            height: 100vh;
+            padding: 0 0;
+            max-width: 2200px;
+            margin: 0 auto;
+            justify-content: center;
+        }
+
+        .card-panel {
+            background: var(--surface-color);
+            border-radius: 0.75rem;
+            padding: 2.5rem 2rem;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            min-height: 90vh;
+            font-size: 1rem;
+        }
+
+        .project-panel {
+            min-width: 260px;
+            max-width: 350px;
+            padding-right: 1.5rem;
+        }
+
+        .version-history-panel {
+            min-width: 420px;
+            max-width: 600px;
+        }
+
+        .upload-panel {
+            min-width: 700px;
+            max-width: 1100px;
+            min-height: 95vh;
+        }
+
+        .upload-panel .form-group {
+            margin-bottom: 2rem;
+        }
+
+        @media (max-width: 1600px) {
+            .version-main-panel {
+                grid-template-columns: 1fr 1.2fr 2fr;
+                max-width: 1400px;
+            }
+            .upload-panel {
+                min-width: 400px;
+                max-width: 700px;
+            }
+        }
+
+        /* Help Button Styles */
+        .help-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            border-radius: 50%;
+            width: 2.5rem;
+            height: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-left: 1rem;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .help-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: scale(1.05);
+        }
+
+        .help-icon {
+            font-size: 1.1rem;
+            line-height: 1;
+        }
+
+        /* Help Modal Styles */
+        .help-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            backdrop-filter: blur(4px);
+        }
+
+        .help-modal {
+            background: var(--surface-color);
+            border-radius: 1rem;
+            width: 90vw;
+            max-width: 800px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+        }
+
+        .help-modal-header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+            color: white;
+        }
+
+        .help-modal-header h3 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .help-modal-close {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            color: white;
+            cursor: pointer;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s ease;
+        }
+
+        .help-modal-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .help-modal-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+
+        .help-modal-content h3 {
+            color: var(--primary-color);
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+        }
+
+        .help-modal-content h3:first-child {
+            margin-top: 0;
+        }
+
+        .help-modal-content h4 {
+            color: var(--text-primary);
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            font-size: 1.1rem;
+        }
+
+        .help-modal-content p {
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .help-modal-content ul {
+            margin-bottom: 1rem;
+            padding-left: 1.5rem;
+        }
+
+        .help-modal-content li {
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .help-modal-content strong {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        @media (max-width: 1100px) {
+            .version-main-panel {
+                grid-template-columns: 1fr;
+                max-width: 98vw;
+                padding: 1rem 0;
+            }
+            .card-panel {
+                min-width: 0;
+                max-width: 100vw;
+                margin-bottom: 1.5rem;
+            }
+            
+            .help-btn {
+                width: 2rem;
+                height: 2rem;
+                margin-left: 0.5rem;
+            }
+            
+            .help-modal {
+                width: 95vw;
+                max-height: 95vh;
+            }
+            
+            .help-modal-header {
+                padding: 1rem 1.5rem;
+            }
+            
+            .help-modal-header h3 {
+                font-size: 1.25rem;
+            }
+            
+            .help-modal-content {
+                padding: 1.5rem;
+            }
+        }
     </style>
 </head>
 <body>
-    <!-- Main Content -->
-    <main class="main-content">
+
+<div class="vc-layout">
+    <main class="vc-content">
         <header class="header">
             <h1>Version Control</h1>
             <p class="subtitle">Track file versions with comments and visual diffs</p>
-            <div class="top-nav">
-                <a href="../index.html" class="top-nav-btn">Home</a>
-                <a href="../clipboard/clipboard.html" class="top-nav-btn">Clipboard History</a>
-                <a href="version.html" class="top-nav-btn">Version Control</a>
-            </div>
+                            <div class="top-nav">
+                    <a href="../index.html" class="top-nav-btn">Home</a>
+                    <a href="../clipboard/clipboard.html" class="top-nav-btn">Clipboard History</a>
+                    <a href="version.html" class="top-nav-btn">Version Control</a>
+                    <a href="../folders/folders.html" class="top-nav-btn">Folder Manager</a>
+                    <button class="help-btn" id="helpBtn" title="How this page works">
+                        <span class="help-icon">?</span>
+                    </button>
+                </div>
         </header>
-
-        <div class="dashboard">
-            <div class="version-container">
-                <!-- Upload Panel -->
-                <div class="upload-panel">
+        <div class="dashboard version-dashboard-flex">
+            <div class="version-main-panel">
+                <!-- Project Panel (Sidebar) -->
+                <div class="project-panel card-panel">
+                    <h4 class="vc-heading">Projects</h4>
+                    <div id="projectGroupsList"></div>
+                </div>
+                <!-- Version History Panel -->
+                <div class="version-history-panel card-panel">
+                    <div class="panel-content">
+                        <div id="versionDisplayContainer"></div>
+                    </div>
+                </div>
+                <!-- Create New Version Panel -->
+                <div class="upload-panel card-panel">
                     <div class="panel-header">
                         <h2>Create New Version</h2>
                         <p class="text-muted">Upload a file or paste content to save a new version</p>
                     </div>
-                    
                     <div class="panel-content">
                         <form id="versionForm">
-                            <!-- Project Selection -->
-                            <div class="project-selector">
+                            <div class="form-group flex">
                                 <label for="projectSelect">Project:</label>
-                                <div class="project-input-group">
-                                    <select id="projectSelect" class="project-select" required>
-                                        <option value="">Select or create project...</option>
-                                    </select>
-                                    <button type="button" class="new-project-btn" id="newProjectBtn">+ New</button>
-                                </div>
-                                <input type="text" id="newProjectInput" class="form-input hidden" placeholder="Enter project name..." style="margin-top: 0.5rem;">
+                                <select id="projectSelect" class="form-input">
+                                    <option value="">Select or create project...</option>
+                                </select>
+                                <button type="button" id="newProjectBtn" class="btn-secondary">+ New</button>
                             </div>
-
-                            <!-- Group Name -->
-                            <div class="form-group">
-                                <label for="groupInput">Group (optional):</label>
-                                <input type="text" id="groupInput" class="form-input" placeholder="e.g., Work, Personal, etc.">
+                            <input type="text" id="newProjectInput" class="form-input hidden" placeholder="Enter project name (optional)..." style="margin-top: 0.5rem;">
+                            <div class="form-group flex">
+                                <label for="groupSelect">Group (optional):</label>
+                                <select id="groupSelect" class="form-input">
+                                    <option value="">Select or create group...</option>
+                                </select>
+                                <button type="button" id="newGroupBtn" class="btn-secondary">+ New</button>
                             </div>
-
-                            <!-- File Upload Area -->
+                            <input type="text" id="newGroupInput" class="form-input hidden" placeholder="Enter group name..." style="margin-top: 0.5rem;">
                             <div class="upload-area" id="uploadArea">
                                 <div class="upload-text">
                                     <p><strong>Drop files here</strong> or click to browse</p>
@@ -646,83 +1025,60 @@
                                 </button>
                                 <span class="text-muted">or paste content below</span>
                             </div>
-                            <input type="text" id="filenameInput" class="form-input hidden" style="display:none;" />
-
-                            <!-- Text Content Area -->
                             <div class="form-group">
                                 <label for="contentArea">Text Content:</label>
                                 <textarea id="contentArea" class="text-area" placeholder="Paste your content here..."></textarea>
                             </div>
-
-                            <!-- Optional Comment -->
                             <div class="form-group">
                                 <label for="commentInput">Version Comment (optional):</label>
                                 <input type="text" id="commentInput" class="form-input" placeholder="Optional: Describe what changed...">
                             </div>
-
                             <button type="submit" class="submit-btn" id="submitBtn">Save Version</button>
                         </form>
-                    </div>
-                </div>
-
-                <!-- History Panel -->
-                <div class="history-panel">
-                    <div class="panel-header">
-                        <h2>Version History</h2>
-                        <p class="text-muted">Browse and compare previous versions</p>
-                    </div>
-                    
-                    <div class="panel-content">
-                        <!-- Project Groups List -->
-                        <div class="project-groups-list" id="projectGroupsList">
-                            <div class="empty-state">
-                                <p>No projects yet</p>
-                                <p class="text-muted">Create your first version to get started</p>
-                            </div>
-                        </div>
-
-                        <!-- This is where the list of versions for the selected project will go -->
-                        <div id="versionDisplayContainer"></div>
                     </div>
                 </div>
             </div>
         </div>
     </main>
+</div>
 
-    <!-- Diff Modal -->
-    <div class="modal" id="diffModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="diffTitle">Compare Versions</h3>
-                <button class="close-btn" onclick="closeDiffModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <!-- Dynamic content will be inserted here by AdvancedDiff -->
-            </div>
+<!-- Diff Modal -->
+<div class="modal" id="diffModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="diffTitle">Compare Versions</h3>
+            <button class="close-btn" onclick="closeDiffModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- Dynamic content will be inserted here by AdvancedDiff -->
         </div>
     </div>
+</div>
 
-    <!-- Toast Container -->
-    <div class="toast-container" id="toastContainer"></div>
+<!-- Toast Notifications -->
+<div class="toast-container" id="toastContainer"></div>
 
-    <!-- Project Context Menu -->
-    <div id="projectContextMenu" class="context-menu">
-        <ul>
-            <li id="renameProjectBtn">Rename Project</li>
-            <li id="moveProjectBtn">Move to Group...</li>
-            <li id="deleteProjectBtn" class="danger-option">Delete Project</li>
-        </ul>
-    </div>
+<!-- Fixed Muse Image -->
+<img src="../muse.png" alt="Clio Muse" class="muse-image">
 
-    <!-- Group Context Menu -->
-    <div id="groupContextMenu" class="context-menu">
-        <ul>
-            <li id="deleteGroupBtn" class="danger-option">Delete Group</li>
-        </ul>
-    </div>
+<!-- Project Context Menu -->
+<div id="projectContextMenu" class="context-menu">
+    <ul>
+        <li id="renameProjectBtn">Rename Project</li>
+        <li id="moveProjectBtn">Move to Group...</li>
+        <li id="deleteProjectBtn" class="danger-option">Delete Project</li>
+    </ul>
+</div>
 
-    <script src="../app.js"></script>
-    <script src="diff.js"></script>
-    <script src="version.js"></script>
+<!-- Group Context Menu -->
+<div id="groupContextMenu" class="context-menu">
+    <ul>
+        <li id="deleteGroupBtn" class="danger-option">Delete Group</li>
+    </ul>
+</div>
+
+<script src="../app.js"></script>
+<script src="diff.js"></script>
+<script src="version.js"></script>
 </body>
 </html>

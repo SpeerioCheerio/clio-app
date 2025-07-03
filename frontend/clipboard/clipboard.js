@@ -53,24 +53,27 @@ class ClipboardManager {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             
             switch(e.key) {
-                case 'F6':
+                case 'F5':
                     e.preventDefault();
                     this.copyToSlot('A');
                     break;
-                case 'F7':
+                case 'F6':
                     e.preventDefault();
                     this.copyToSlot('B');
                     break;
-                case 'F8':
+                case 'F7':
                     e.preventDefault();
                     this.pasteSlot('A');
                     break;
-                case 'F9':
+                case 'F8':
                     e.preventDefault();
                     this.pasteSlot('B');
                     break;
             }
         });
+
+        // Help button functionality
+        document.getElementById('helpBtn').addEventListener('click', showHelpModal);
     }
 
     async loadClipboardHistory() {
@@ -518,10 +521,10 @@ document.addEventListener('DOMContentLoaded', function() {
     `;
     shortcutHints.innerHTML = `
         <div style="font-weight: 600; margin-bottom: 0.5rem;">Keyboard Shortcuts:</div>
-        <div>F6: Copy to Slot A</div>
-        <div>F7: Copy to Slot B</div>
-        <div>F8: Paste Slot A</div>
-        <div>F9: Paste Slot B</div>
+        <div>F5: Copy to Slot A</div>
+        <div>F6: Copy to Slot B</div>
+        <div>F7: Paste Slot A</div>
+        <div>F8: Paste Slot B</div>
     `;
     
     // Add toggle for shortcut hints
@@ -547,6 +550,120 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+// Help Modal Functions
+function showHelpModal() {
+    // Create modal container
+    const modal = document.createElement('div');
+    modal.className = 'help-modal-overlay';
+    modal.innerHTML = `
+        <div class="help-modal">
+            <div class="help-modal-header">
+                <h3>How Clipboard History Works</h3>
+                <button class="help-modal-close">&times;</button>
+            </div>
+            <div class="help-modal-content">
+                <div class="warning-box">
+                    <h4>⚠️ Important Setup Requirement</h4>
+                    <p>The clipboard history feature only works when you run the local batch file (<strong>start_monitor.bat</strong>) on your computer. Browsers cannot access your system clipboard or log keystrokes for security reasons, so the desktop monitoring application is required.</p>
+                    <p>Make sure to run the batch file as administrator for full functionality.</p>
+                </div>
+
+                <h3>What This Feature Does</h3>
+                <p>Clipboard History automatically logs all your copy and paste operations on your system. It captures everything you copy (text, URLs, code, emails, etc.) and organizes it by content type, making it easy to find and reuse items from your clipboard history.</p>
+
+                <h3>Core Functionality</h3>
+                <ul>
+                    <li><strong>Automatic Logging:</strong> Every time you copy something (Ctrl+C), it's automatically saved to your history.</li>
+                    <li><strong>Smart Content Detection:</strong> Content is automatically categorized by type (text, URLs, code, emails, numbers).</li>
+                    <li><strong>Easy Reuse:</strong> Click "Copy" on any item to copy it back to your clipboard.</li>
+                    <li><strong>History Management:</strong> Delete individual items or search through your history.</li>
+                </ul>
+
+                <h3>Enhanced Clipboard Slots</h3>
+                <p>Instead of having just one clipboard slot like normal (Ctrl+C and Ctrl+V), this system gives you <strong>two additional clipboard slots</strong> using function keys:</p>
+
+                <h4>Clipboard Slot A (F5/F7)</h4>
+                <ul>
+                    <li><strong>F5:</strong> Copy current selection to Slot A</li>
+                    <li><strong>F7:</strong> Paste content from Slot A</li>
+                </ul>
+
+                <h4>Clipboard Slot B (F6/F8)</h4>
+                <ul>
+                    <li><strong>F6:</strong> Copy current selection to Slot B</li>
+                    <li><strong>F8:</strong> Paste content from Slot B</li>
+                </ul>
+
+                <h3>Using Multiple Clipboard Slots</h3>
+                <p>This feature allows you to hold multiple items in your clipboard storage simultaneously:</p>
+                <ol>
+                    <li>Copy something with Ctrl+C (normal clipboard)</li>
+                    <li>Copy something else with F5 (goes to Slot A)</li>
+                    <li>Copy a third item with F6 (goes to Slot B)</li>
+                    <li>Now you can paste any of these three items using Ctrl+V, F7, or F8</li>
+                </ol>
+
+                <h3>Content Organization</h3>
+                <ul>
+                    <li><strong>Search:</strong> Use the search box to find specific content in your history.</li>
+                    <li><strong>Filter by Type:</strong> Click content type buttons to show only URLs, code, text, etc.</li>
+                    <li><strong>Time-based Display:</strong> Items are shown with timestamps and "time ago" indicators.</li>
+                    <li><strong>Source Tracking:</strong> See which application you copied content from.</li>
+                </ul>
+
+                <h3>Managing Your History</h3>
+                <ul>
+                    <li><strong>Individual Deletion:</strong> Click "Delete" on any item to remove it from history.</li>
+                    <li><strong>Content Preview:</strong> Long content is truncated with "Show More" options.</li>
+                    <li><strong>Statistics:</strong> View your clipboard activity statistics in the sidebar.</li>
+                    <li><strong>Automatic Cleanup:</strong> History is maintained for 24 hours by default.</li>
+                </ul>
+
+                <h3>Privacy & Security</h3>
+                <p>All clipboard data stays on your local machine. The desktop monitoring application only captures text content and does not log passwords or sensitive fields marked as secure by applications.</p>
+            </div>
+        </div>
+    `;
+
+    // Add modal to page
+    document.body.appendChild(modal);
+    document.body.style.overflow = 'hidden';
+
+    // Event listeners
+    const closeBtn = modal.querySelector('.help-modal-close');
+    closeBtn.addEventListener('click', closeHelpModal);
+    
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeHelpModal();
+        }
+    });
+
+    // ESC key to close
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
+            closeHelpModal();
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+
+    // Store cleanup function
+    modal._cleanup = () => {
+        document.removeEventListener('keydown', escHandler);
+    };
+}
+
+function closeHelpModal() {
+    const modal = document.querySelector('.help-modal-overlay');
+    if (modal) {
+        if (modal._cleanup) {
+            modal._cleanup();
+        }
+        document.body.removeChild(modal);
+        document.body.style.overflow = '';
+    }
+}
 
 // Export for use in other files
 if (typeof module !== 'undefined' && module.exports) {

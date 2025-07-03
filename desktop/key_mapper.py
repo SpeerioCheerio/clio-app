@@ -19,10 +19,10 @@ class ClipboardKeyMapper:
         
         # Default key mappings
         self.key_mappings = {
-            "copy_slot_a": "f6",
-            "copy_slot_b": "f7", 
-            "paste_slot_a": "f8",
-            "paste_slot_b": "f9"
+            "copy_slot_a": "f5",
+            "copy_slot_b": "f6", 
+            "paste_slot_a": "f7",
+            "paste_slot_b": "f8"
         }
         
         print("Clipboard Key Mapper initialized")
@@ -116,10 +116,10 @@ class ClipboardKeyMapper:
             
             self.hotkeys_registered = True
             print("Hotkeys registered:")
-            print(f"   F6: Copy to Slot A")
-            print(f"   F7: Copy to Slot B") 
-            print(f"   F8: Paste Slot A")
-            print(f"   F9: Paste Slot B")
+            print(f"   F5: Copy to Slot A")
+            print(f"   F6: Copy to Slot B") 
+            print(f"   F7: Paste Slot A")
+            print(f"   F8: Paste Slot B")
             
         except Exception as e:
             print(f"Error registering hotkeys: {e}")
@@ -273,7 +273,7 @@ def main():
                 print(f"Clipboard access: {e}")
                 
         elif command == "help":
-            print("Clipboard Key Mapper Commands:\n\n  python key_mapper.py start        - Start with hotkeys (F6-F9)\n  python key_mapper.py status       - Show current slot contents\n  python key_mapper.py clear <A|B>  - Clear specific slot\n  python key_mapper.py clear ALL    - Clear all slots\n  python key_mapper.py interactive  - Interactive mode\n  python key_mapper.py test         - Test functionality\n  python key_mapper.py help         - Show this help\n\nHotkeys (when running):\n  F6 - Copy current clipboard to Slot A\n  F7 - Copy current clipboard to Slot B  \n  F8 - Paste Slot A content\n  F9 - Paste Slot B content\n            ")
+            print("Clipboard Key Mapper Commands:\n\n  python key_mapper.py start        - Start with hotkeys (F5-F8)\n  python key_mapper.py status       - Show current slot contents\n  python key_mapper.py clear <A|B>  - Clear specific slot\n  python key_mapper.py clear ALL    - Clear all slots\n  python key_mapper.py interactive  - Interactive mode\n  python key_mapper.py test         - Test functionality\n  python key_mapper.py help         - Show this help\n\nHotkeys (when running):\n  F5 - Copy current clipboard to Slot A\n  F6 - Copy current clipboard to Slot B  \n  F7 - Paste Slot A content\n  F8 - Paste Slot B content\n            ")
         else:
             print(f"Unknown command: {command}")
             print("Use 'python key_mapper.py help' for available commands")

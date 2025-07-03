@@ -25,9 +25,8 @@ services:
       - fromGroup: clio-secrets
 
   # -------------------  FRONT-END  -------------------
-  - type: web
+  - type: static
     name: clio-frontend
-    runtime: static       # <- tells Render "this is a static site"
     staticPublishPath: ./frontend
 
     # custom headers / rewrites are fine here
